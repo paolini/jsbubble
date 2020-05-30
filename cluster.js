@@ -224,7 +224,7 @@ class Cluster {
     }
 
     get length() {
-        var length = 0.0;
+        let length = 0.0;
         this.regions.forEach(region => {
             length += region.length;
         })
@@ -233,6 +233,11 @@ class Cluster {
 
     get areas() {
         return this.regions.map(region => region.area); 
+    }
+
+    set_targets(areas) {
+        assert(areas.length === this.regions.length);
+        this.regions.forEach((region, i) => {region.target = areas[i]});
     }
 
     static merge(cluster1, cluster2) {

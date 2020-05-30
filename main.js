@@ -1,3 +1,5 @@
+function $elem(s) {return $(`<${s}></${s}>`);}
+
 function recurse_plot(ctx, element) {
     if (element instanceof Arc) {
         ctx.beginPath();
@@ -27,30 +29,51 @@ function recurse_plot(ctx, element) {
 
 class Main {
     constructor() {
-        const canvas = document.getElementById("canvas");
-        /*
-        var ctx = canvas.getContext("2d");
-        ctx.beginPath();
-        ctx.arc(100,100,100,-0.5,3.5);
-        ctx.stroke();
-        */
+        const canvas = $("#canvas")[0];
+        this.$div = $("#div");
         this.myctx = new MyCtx(0, 0, 10);
         this.myctx.reset_canvas(canvas);
-        /*
-        myctx.beginPath();
-        myctx.arc(0,0,2,-0.5,3.5);
-        myctx.stroke();
-        */
         this.cluster = Cluster.merge(
             double_bubble(0,0, 1,0, 0),
             double_bubble(-2,0,-1, 0.2, 0.1));
+        this.cluster.set_targets([1.0, 2.0, 2.5, 3.0]);
     }
 
     plot() {
         recurse_plot(this.myctx, this.cluster);
     }
+
+    populate_html() {
+        this.$div.empty();
+        this.$div.append($elem("p").text("length: " + this.cluster.length));
+        var $table = $elem("table");
+        $table.append($elem("tr")
+            .append($elem("th").text("region"))
+            .append($elem("th").text("area"))
+            .append($elem("th").text("target")));
+        this.cluster.regions.forEach((region,i) => {
+            let $input = $elem("input").attr("value", region.target)
+                .attr("size", 5).change((event) => {
+                let target = parseFloat(event.target.value);
+                region.target = target;
+            });
+            $table.append($elem("tr")
+                .append($elem("td").text(i))
+                .append($elem("td").text(region.area))
+                .append($elem("td").append($input)));
+        });
+        this.$div.append($table);
+    }
+
+    update() {
+        this.plot();
+        this.populate_html();
+    }
 }
 
-document.addEventListener("DOMContentLoaded",function(){
-    new Main().plot();
+let main = null;
+
+$(() => {
+    main = new Main();
+    main.update();
 });
