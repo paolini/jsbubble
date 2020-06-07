@@ -20,6 +20,11 @@ class MyCtx {
     reset_canvas(canvas) {
         this.update(canvas.width, canvas.height);
         this.ctx = canvas.getContext("2d");
+        this.canvas = canvas;
+    }
+
+    clear() {
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
     }
 
     ctx_x(x) {
