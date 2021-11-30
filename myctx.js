@@ -5,6 +5,15 @@ class MyCtx {
         this.diagonal = diagonal;
         this.update(640, 480);
         this.ctx = null;
+        this.canvas = null;
+    }
+
+    getCursorPosition(event) {
+        if (this.canvas == null) return null;
+        const rect = this.canvas.getBoundingClientRect();
+        const x = this.x_ctx(event.clientX - rect.left);
+        const y = this.y_ctx(event.clientY - rect.top);
+        return [x, y];
     }
 
     update(width, height) {
@@ -35,8 +44,20 @@ class MyCtx {
         return (this.y0 - y) * this.scale;
     }
 
+    x_ctx(xx) {
+        return this.x0 + xx/this.scale;
+    }
+
+    y_ctx(yy) {
+        return this.y0 - yy/this.scale;
+    }
+
     beginPath() {
         return this.ctx.beginPath();
+    }
+
+    closePath() {
+        return this.ctx.closePath();
     }
 
     stroke() {

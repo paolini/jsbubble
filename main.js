@@ -6,35 +6,45 @@ class Main {
         this.$div = $("#div");
         this.myctx = new MyCtx(0, 0, 10);
         this.myctx.reset_canvas(canvas);
-        this.cluster = Cluster.merge(
-            double_bubble(0,0, 1,0, 0, "db1"),
-            double_bubble(-2,0,-1, 0.2, 0.1, "db2"));
-            var regions = this.cluster.regions;
-            regions[0].target = 1.0;
-            regions[1].target = 2.0;
-            regions[2].target = 2.5;
-            regions[3].target = 3.0;
-            regions.forEach(region => {region.pressure=1.0});
-        }
+        this.cluster = new Cluster();
+        this.cluster.add_bubble(0.0, 0.0, 0.5);
+        this.cluster.add_bubble(1.0, 0.0, 0.7);
+        var self = this;
+        canvas.addEventListener("mousemove", function(evt){
+            self.mousemove(evt);
+        }, false);
+    }
         
     plot() {
         const ctx = this.myctx;
         ctx.clear();
-        this.cluster.arcs.forEach(arc => {
-            if (arc instanceof Circle) {
-                ctx.beginPath();
-                ctx.arc(arc.center.x, arc.center.y, arc.radius, 0, 2*Math.PI);
-                ctx.stroke();                    
-            } else {
-                ctx.beginPath();
-                if (Math.abs(arc.R) > 10.0) {
-                    ctx.moveTo(arc.p1.x, arc.p1.y);
-                    ctx.lineTo(arc.p2.x, arc.p2.y);
+        if (0) {
+            ctx.beginPath();
+            ctx.moveTo(0.0, 0.0);
+            ctx.lineTo(1.0, 0.0);
+            ctx.lineTo(1.0,1.0);
+            ctx.lineTo(0.0, 1.0);
+            ctx.closePath();
+            ctx.stroke();
+        }
+
+        const xs = this.cluster.xs;
+        const ys = this.cluster.ys;
+        this.cluster.regions.forEach(region => {
+            ctx.beginPath();
+            var start = null;
+            for(var i=0; i<region.length; ++i) {
+                if (start == null) {
+                    start = region[i];
+                    ctx.moveTo(xs[region[i]], ys[region[i]]);                    
+                } else if (region[i] == start) {
+                    ctx.closePath();
+                    start = null;
                 } else {
-                    ctx.arc(arc.center.x, arc.center.y, Math.abs(arc.R), arc.arc_start_angle, arc.arc_end_angle);
+                    ctx.lineTo(xs[region[i]], ys[region[i]]);
                 }
-                ctx.stroke(); 
             }
+            ctx.stroke();
         });
     }
 
@@ -83,6 +93,15 @@ class Main {
         this.cluster.evolve(0.01);
         this.draw();
         if (this.loop) window.requestAnimationFrame(this.update());
+    }
+
+    mousemove(evt) {
+        const xy = this.myctx.getCursorPosition(evt);
+        const x = xy[0];
+        const y = xy[1];
+        this.cursor_x = x;
+        this.cursor_y = y;
+        
     }
 
 }
