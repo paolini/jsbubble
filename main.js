@@ -7,17 +7,19 @@ class Main {
         this.myctx = new MyCtx(0, 0, 10);
         this.myctx.reset_canvas(canvas);
         this.cluster = new Cluster();
-        this.cluster.add_bubble(0.0, 0.0, 0.5);
-        this.cluster.add_bubble(1.0, 0.0, 0.6);
+        this.cluster.add_bubble(new Vec(0.0, 0.0), 1);
+        this.cluster.add_bubble(new Vec(2.0, 0.0), 1.5);
         var self = this;
         canvas.addEventListener("mousemove", function(evt){
             self.mousemove(evt);
         }, false);
+        this.draw_vertices = 1;
     }
         
     plot() {
         const ctx = this.myctx;
         ctx.clear();
+        ctx.setStrokeColor("blue");
         if (0) {
             ctx.beginPath();
             ctx.moveTo(0.0, 0.0);
@@ -33,17 +35,22 @@ class Main {
         this.cluster.regions.forEach(region => {
             ctx.beginPath();
             var start = null;
-            for(var i=0; i<region.length; ++i) {
-                if (start == null) {
-                    start = region[i];
-                    ctx.moveTo(xs[region[i]], ys[region[i]]);                    
-                } else if (region[i] == start) {
-                    ctx.closePath();
-                    start = null;
-                } else {
-                    ctx.lineTo(xs[region[i]], ys[region[i]]);
-                }
-            }
+            region.components.forEach(function(component) {
+                component.forEach(function(p, i) {
+                    if (i==0) {
+                        ctx.moveTo(p.x, p.y);                    
+                    } else {
+                        ctx.lineTo(p.x, p.y);
+                    } 
+                });
+            });
+            ctx.closePath();
+            ctx.stroke();
+        });
+        ctx.setStrokeColor("red");
+        this.cluster.vertices.forEach(function(v){
+            ctx.beginPath();
+            ctx.circle(v.x, v.y, 2/ctx.scale);
             ctx.stroke();
         });
     }

@@ -86,4 +86,8 @@ class MyCtx {
         this.lineTo(x1, y1);
         this.stroke();
     }
+
+    setStrokeColor(color) {
+        this.ctx.strokeStyle =color;
+    }
 }
