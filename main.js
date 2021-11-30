@@ -8,7 +8,7 @@ class Main {
         this.myctx.reset_canvas(canvas);
         this.cluster = new Cluster();
         this.cluster.add_bubble(0.0, 0.0, 0.5);
-        this.cluster.add_bubble(1.0, 0.0, 0.7);
+        this.cluster.add_bubble(1.0, 0.0, 0.6);
         var self = this;
         canvas.addEventListener("mousemove", function(evt){
             self.mousemove(evt);

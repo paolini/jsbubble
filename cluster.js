@@ -1,3 +1,13 @@
+function ray_intersect(x0, y0, dx0, dy0, x1, y1, dx1, dy1) {
+    // return [t0, t1] such that 
+    // x0 + t0 * dx0 = x1 + t1 * dx1
+    // y0 + t0 * dy0 = y1 + t1 * dy1
+    const det = dx1 * dy0 - dx0 * dy1;
+    const det0 = dx1 * (y1-y0) - (x1-x0) * dy1;
+    const det1 = dx0 * (y1-y0) - (x1-x0) * dy0;
+
+    return [det0 / det, det1 / det];
+}
 
 class Cluster {
     constructor() {
@@ -5,8 +15,9 @@ class Cluster {
         this.ys = []; // ys.length == xs.length
         this.force_xs = []; // force_xs.length == xs.length
         this.force_ys = []; // force_ys.length == force_xs.length
-        this.regions = []; // last point repeated: regions.length == total_points + n_loops
+        this.regions = []; // last point repeated: regions[i].length == total_points + n_loops
         this.areas = []; // areas.length == regions.length
+        this.pressures = []; // pressures.length == regions.length
     }
 
     compute_area(region) {
@@ -50,35 +61,27 @@ class Cluster {
     add_bubble(x, y, r, area, n=10) {
         // construct cluster with a single bubble
         const N = this.xs.length;
-        this.xs = this.xs.concat(Array(n));
-        this.ys = this.ys.concat(Array(n));
-        var in_region = this.region_containing(x,y) >= 0;
-        if (in_region >= 0) {
-            console.log("cannot add bubble inside existing region");
-            return;
+        var in_region = this.region_containing(x,y);
+        if (in_region>=0) {
+            console.log("currently cannot add region inside other region");
+            return 0;
         }
-        var region = Array(n+1);
+        var new_region = [];
+        this.regions.push(new_region);
+        this.areas.push(area?area:Math.PI*r*r);
+        this.pressures.push(1.0 / r);
         for(var i=0; i<n; ++i) {
             const t = 2.0 * Math.PI * i / n;
-            var xx = x + r * Math.cos(t);
-            var yy = y + r * Math.sin(t);
-            var inside = this.region_containing(xx,yy);
-            if (inside >=0) {
-                // inside other region.
-            }
-            this.xs[N + i] = xx;
-            this.ys[N + i] = yy;
-            region[i] = N + i;
+            const v = this.xs.length; 
+            this.xs.push(x);
+            this.ys.push(y);
+            this.force_xs.push(r * Math.cos(t));
+            this.force_ys.push(r * Math.sin(t));
+            new_region.push(v);
         } 
-        region[n] = region[0]; // close loop
-
-        for (var j=0; j<this.regions.length; j++) {
-            this.check_region_region_compenetration(region, this.regions[j]);
-        }
-
-        this.regions.push(region);
-        this.areas.push(area);
-        this.n += n;
+        new_region.push(new_region[0]); // close loop
+        this.evolve();
+        return true;
     }
 
     region_containing(x, y) {
@@ -123,10 +126,22 @@ class Cluster {
         }
     }
 
-    check_region_region_compenetration(region, in_region) {
-        var count = 0;
-        start = null;
-        for (var i=0; i<region.length; ++i) {
+    ray_hits_region(x,y, xx,yy, region) {
+        // fire a ray from point (x,y)
+        // towards point (xx, yy):
+        // (x+t(xx-x), y+t(yy-y))
+        // and find first positive t<1 of contact with region
+
+        var hit = { // best hit so far
+            t: Infinity, 
+            vertex: null,
+            s: null
+        }
+
+        var start = null;
+        const dx0 = xx - x;
+        const dy0 = yy - y;
+        for(var i=0;i<region.length;i++) {
             if (region[i] == start) {
                 start = null;
                 continue;
@@ -134,37 +149,63 @@ class Cluster {
             if (start == null) {
                 start = region[i];
             }
-            var x = this.xs[region[i]];
-            var y = this.ys[region[i]];
-            if (this.is_inside(x,y,in_region)) {
-                var in_start = null;
-                var dist2 = Infinity;
-                var found = null;
-                for (var j=0; j<in_region.length;++j) {
-                    if (in_region[j] == start) {
-                        start = null;
-                        continue;
-                    }
-                    if (start == null) {
-                        start = in_region[j];
-                    }
-                    var xx = this.xs[in_region[j]];
-                    var yy = this.ys[in_region[j]];
-                    var d2 = (xx-x)*(xx-x) + (yy-y)*(yy-y);
-                    if (d2<dist2) {
-                        found = j;
-                    }
-                }
-                if (in_region[found] != region[i]) {
-                    // if the regions have a common point: that's ok!
-                    // stick point i of region with point found of in_region:
-                    // add found after i in region and i after found in in_region
-                    region.splice(i+1, 0, in_region[found]);
-                    in_region.splice(found+1, 0, region[i]);
-                    count += 1;
-                    i++; 
-                }
+            const x0 = this.xs[region[i]];
+            const y0 = this.ys[region[i]];
+            const x1 = this.xs[region[i+1]];
+            const y1 = this.ys[region[i+1]];
+
+            if (x<x0 && x<x1 && xx<x0 && xx<x1) continue;
+            if (x>x0 && x>x1 && xx>x0 && xx>x1) continue;
+            if (y<y0 && y<y1 && yy<y0 && yy<y1) continue;
+            if (y>y0 && y>y1 && yy>y0 && yy>y1) continue;
+            const h = ray_intersect(x,y, xx-x, yy-y, x0,y0, x1-x0,y1-y0);
+            const t = h[0];
+            const s = h[1];
+            if (s<0 || s>1 || t<0) continue;
+            if (t < hit.t) {
+                hit.t = t;
+                hit.i = i;
+                hit.s = s;
             }
         }
+        return hit;
     }
+
+    evolve_vertex(vertex) {
+        const x = this.xs[vertex];
+        const y = this.ys[vertex];
+        const fx = this.force_xs[vertex];
+        const fy = this.force_ys[vertex];
+        if (fx == 0.0 && fy == 0.0) return;
+        var t = 1.0; // allowed movement t*fx, t*fy
+        var hit = {t: Infinity}
+        for (var i=0; i<this.regions.length; ++i) {
+            const region = this.regions[i];
+            var j=0;
+            for (;j<region.length && region[j]!=vertex;++j);
+            if (j<region.length) continue; // vertex is on region contour
+            var h = this.ray_hits_region(x, y, x+fx, y+fy, region);
+            h.region = region;
+            if (h.t < hit.t) hit = h;
+        }
+        if (hit.t<=1.0) {
+            // BUMP!
+            this.xs[vertex] += hit.t * fx;
+            this.ys[vertex] += hit.t * fy;
+            hit.region.splice(hit.i+1, 0, vertex);
+        } else {
+            this.xs[vertex] += fx;
+            this.ys[vertex] += fy;
+        }
+        this.force_xs[vertex] = 0.0;
+        this.force_ys[vertex] = 0.0;
+    }
+
+    evolve() {
+        // move vertices along forces
+        for(var i=0; i<this.xs.length; ++i) {
+            this.evolve_vertex(i);
+        }
+    }
+
 }
