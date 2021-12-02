@@ -7,8 +7,12 @@ class Main {
         this.myctx = new MyCtx(0, 0, 10);
         this.myctx.reset_canvas(canvas);
         this.cluster = new Cluster();
-        this.cluster.add_bubble(new Vec(0.0, 0.0), 1);
-        this.cluster.add_bubble(new Vec(2.0, 0.0), 1.5);
+        if (false) {
+            this.cluster.add_bubble(new Vec(0.0, 0.0), 1);
+            this.cluster.add_bubble(new Vec(2.0, 0.0), 1.5);
+        } else {
+            this.cluster.add_n_bubble(new Vec(0,0), 1.0, 3);
+        }
         var self = this;
         canvas.addEventListener("mousemove", function(evt){
             self.mousemove(evt);
@@ -84,11 +88,15 @@ class Main {
             });
             $table.append($elem("tr")
                 .append($elem("td").text(i))
-                .append($elem("td").text(region.area))
+                .append($elem("td").text(region.compute_area()))
                 .append($elem("td").append($input))
                 .append($elem("td").text(region.pressure)));
         });
         this.$div.append($table);
+    }
+
+    update_html() {
+
     }
 
     draw() {
