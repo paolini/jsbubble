@@ -51,6 +51,15 @@ class Main {
             ctx.closePath();
             ctx.stroke();
         });
+        if (true) {
+            ctx.setStrokeColor("green");
+            this.cluster.vertices.forEach(function(v){
+                ctx.beginPath();
+                ctx.moveTo(v.x, v.y);
+                ctx.lineTo(v.x + v.force.x, v.y+v.force.y);
+                ctx.stroke();
+            });
+        }
         ctx.setStrokeColor("red");
         this.cluster.vertices.forEach(function(v){
             ctx.beginPath();
@@ -105,7 +114,7 @@ class Main {
     }
 
     update() {
-        this.cluster.evolve(0.01);
+        this.cluster.evolve(0.1);
         this.draw();
         if (this.loop) window.requestAnimationFrame(this.update());
     }
