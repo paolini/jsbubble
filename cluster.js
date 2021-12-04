@@ -485,8 +485,9 @@ class Cluster {
         }
         split_chain(chain.vertex_end(), start.chain, start.i); // discard last part
         chains[chains.length-1] = split_chain(chain.vertex_start(), end.chain, end.i);
-        chains.forEach(c => new_regions.chains_negative.push(c));
-        new_regions.chains_positive.push(chain);
+        chains.forEach(c => new_region.chains_negative.push(c));
+        new_region.chains_positive.push(chain);
+        this.regions.push(new_region);
     
         this.compute_topology();
     }
