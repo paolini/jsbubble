@@ -181,6 +181,7 @@ class Cluster {
         this._perimeter = null;
         this.regions.forEach(function(region){
             region._area = null;
+            region._perimeter = null;
         });
         this.chains.forEach(function(chain) {
             chain._length = null;
@@ -259,14 +260,14 @@ class Cluster {
         this.clear_forces();
 
         this.chains.forEach(function(chain) {
-            var ds = chain.length() / (chain.vertices.length-1);
+            // var ds = chain.length() / (chain.vertices.length-1);
             // curvature
             for(var i=1; i<chain.vertices.length; ++i) {
                 const v = chain.vertices[i-1];
                 const w = chain.vertices[i];
 
-                const fx = (w.x-v.x)/ds;
-                const fy = (w.y-v.y)/ds;
+                const fx = (w.x-v.x);
+                const fy = (w.y-v.y);
 
                 v.force.x += fx;
                 v.force.y += fy;
@@ -295,6 +296,29 @@ class Cluster {
         });
     }
 
+    equalize() {
+        var count = 0;
+        this.chains.forEach(chain => {
+            count += chain.vertices.length-1;
+        });
+        const ds_avg = this.perimeter() / count; // average length of segment
+
+        this.chains.forEach(chain => {
+            const n = chain.vertices.length-1;
+            if (ds_avg * (n+1) < chain.length()) {
+                // add one more segment
+                const k = Math.floor(Math.random()*(n-1));
+                const v = chain.vertices[k]; // insert between this
+                const w = chain.vertices[k+1]; // and this
+                chain.vertices.splice(k+1, 0, new Vertex((v.x+w.x)/2, (v.y+w.y)/2));
+            } else if (n>1 && ds_avg * (n-1) > chain.length()) {
+                const k = Math.floor(Math.random()*(n-1));
+                chain.vertices.splice(k+1, 1);
+            }
+        });
+
+    }
+
     evolve(dt) {
         this.regions.forEach(function(region){
             region.area_prev = region.area();
@@ -310,6 +334,8 @@ class Cluster {
         });
 
         this.clear_cache();
+
+        this.equalize();
 
         // update pressures
         this.regions.forEach(function (region) {

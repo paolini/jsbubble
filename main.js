@@ -16,7 +16,7 @@ class Main {
         this.draw_unit_square = 0;
         this.loop = 0;
         this.n_regions = -1;
-        this.dt = 0.01;
+        this.dt = 0.1;
         this.update();
     }
         
