@@ -250,7 +250,7 @@ class Cluster {
         this.clear_forces();
 
         this.chains.forEach(function(chain) {
-            var ds = Math.pow(chain.length() / (chain.vertices.length-1), 2);
+            var ds = Math.pow(chain.length() / (chain.vertices.length-1), 1);
             // curvature
             for(var i=1; i<chain.vertices.length; ++i) {
                 const v = chain.vertices[i-1];
@@ -270,7 +270,7 @@ class Cluster {
                 if (chain.region_left != null) p += chain.region_left.pressure;
                 if (chain.region_right != null) p -= chain.region_right.pressure;
                 const n = chain.vertices.length;
-                for (var i=0; i<n; ++i) {
+                for (var i=1; i<n-1; ++i) {
                     const v = chain.vertices[i>0?i-1:i];
                     const z = chain.vertices[i];
                     const w = chain.vertices[i<n-1?i+1:i];
@@ -305,8 +305,7 @@ class Cluster {
         this.regions.forEach(function (region) {
             var area = region.area();
             var target = Math.max(Math.min(region.target_area, 1.05*area),0.95*area);
-            const darea = target - area;
-            const p = darea / dt;
+            var p = (target - area) / dt;
             region.pressure += 0.5*(p-region.pressure);
         });
 
@@ -339,7 +338,7 @@ function new_bouquet(n) {
     for(var i=0; i<n; ++i) {
         var region = new Region();
         region.chains_positive.push(chains[i]);
-        region.chains_positive.push(chain(vertices[i], vertices[(i+1)%n], 10));
+        region.chains_positive.push(chain(vertices[i], vertices[(i+1)%n], 5));
         region.chains_negative.push(chains[(i+1)%n]);
         cluster.regions.push(region);
     }
