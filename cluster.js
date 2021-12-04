@@ -21,6 +21,14 @@ class Vec {
         this.x = x;
         this.y = y;
     }
+
+    clamp(maxlen) {
+        var l = norm(this);
+        if (l>maxlen) {
+            this.x *= maxlen/l;
+            this.y *= maxlen/l;
+        }
+    }
 }
 class Vertex extends Vec {
     constructor(x, y) {
@@ -29,6 +37,7 @@ class Vertex extends Vec {
     }
 
     evolve(dt) {
+        // this.clamp(2.0); // speed limit!
         this.x += dt * this.force.x;
         this.y += dt * this.force.y;
     }
@@ -98,11 +107,11 @@ class Chain {
 }
 
 class Region {
-    constructor(target_area=1.0) {
+    constructor(area_target=1.0) {
         this.chains_positive = [];
         this.chains_negative = [];
 
-        this.target_area = target_area;
+        this.area_target = area_target;
         
         // computed:
         this.pressure = 1.0;  // hint pressure
@@ -250,7 +259,7 @@ class Cluster {
         this.clear_forces();
 
         this.chains.forEach(function(chain) {
-            var ds = Math.pow(chain.length() / (chain.vertices.length-1), 1);
+            var ds = chain.length() / (chain.vertices.length-1);
             // curvature
             for(var i=1; i<chain.vertices.length; ++i) {
                 const v = chain.vertices[i-1];
@@ -304,9 +313,9 @@ class Cluster {
         // update pressures
         this.regions.forEach(function (region) {
             var area = region.area();
-            var target = Math.max(Math.min(region.target_area, 1.05*area),0.95*area);
+            var target = Math.max(Math.min(region.area_target, 1.05*area),0.95*area);
             var p = (target - area) / dt;
-            region.pressure += 0.5*(p-region.pressure);
+            region.pressure += 0.3*(p-region.pressure);
         });
 
         this.compute_forces();
@@ -338,7 +347,7 @@ function new_bouquet(n) {
     for(var i=0; i<n; ++i) {
         var region = new Region();
         region.chains_positive.push(chains[i]);
-        region.chains_positive.push(chain(vertices[i], vertices[(i+1)%n], 5));
+        region.chains_positive.push(chain(vertices[i], vertices[(i+1)%n], 25));
         region.chains_negative.push(chains[(i+1)%n]);
         cluster.regions.push(region);
     }

@@ -75,22 +75,26 @@ class Main {
             if (this.loop) this.update();
         });
         this.$div.append($button);
-        this.$div.append($elem("button").text("step").click(() => {if (!this.loop) this.update()}));
+        this.$div.append($elem("button").text("step").click(() => {
+            this.loop = 0; 
+            set_button_text();
+            this.update();
+        }));
         this.$div.append($elem("p").attr("id", "perimeter"));
         var $table = $elem("table");
         $table.append($elem("tr")
-            .append($elem("th").text("region"))
-            .append($elem("th").text("area"))
-            .append($elem("th").text("target"))
-            .append($elem("th").text("pressure"))
-            .append($elem("th").text("perimeter")));
+            .append($elem("th").attr('style', 'width: 2em').text("region"))
+            .append($elem("th").attr('style', 'width: 10em').text("area"))
+            .append($elem("th").attr('style', 'width: 10em').text("target"))
+            .append($elem("th").attr('style', 'width: 10em').text("pressure"))
+            .append($elem("th").attr('style', 'width: 10em').text("perimeter")));
         this.cluster.regions.forEach((region,i) => {
             let $input = $elem("input")
                 .attr("id", "target_" + i)
                 .attr("value", region.target_area)
                 .attr("size", 5).change((event) => {
                 let target = parseFloat(event.target.value);
-                region.target = target; 
+                region.area_target = target; 
             });
             $table.append($elem("tr")
                 .append($elem("td").text(i))
@@ -107,7 +111,7 @@ class Main {
         $("#perimeter").text("perimeter: " + this.cluster.perimeter())
         this.cluster.regions.forEach((region, i) => {
             $("#area_" + i).text(region.area());
-            $("#target_" + i).attr("value", region.target_area);
+            $("#target_" + i).attr("value", region.area_target);
             $("#pressure_" + i).text(region.pressure);
             $("#perimeter_" + i).text(region.perimeter());
         });
