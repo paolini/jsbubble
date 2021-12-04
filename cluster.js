@@ -1,3 +1,68 @@
+class Vec {
+    constructor(x,y) {
+        this.x = x;
+        this.y = y;
+    }
+
+    clamp(maxlen) {
+        var l = vec_norm(this);
+        if (l>maxlen) {
+            this.x *= maxlen/l;
+            this.y *= maxlen/l;
+        }
+    }
+
+    set(x, y) {
+        this.x = x;
+        this.y = y;
+    }
+
+    add(v) {
+        this.x += v.x;
+        this.y += v.y;
+    }
+
+    sub(v) {
+        this.x -= v.x;
+        this.y -= v.y;
+    }
+
+    mul(t) {
+        this.x *= t;
+        this.y *= t;
+    }
+
+    div(t) {
+        this.x /= t;
+        this.y /= t;
+    }
+}
+
+function vec_norm(v) {
+    return Math.sqrt(v.x*v.x - v.y*v.y);
+}
+
+function vec_distance(p, q) {
+    // p,q: Vec
+    return Math.sqrt((p.x-q.x)*(p.x-q.x) + (p.y-q.y)*(p.y-q.y));
+}
+
+function vec_add(v, w) {
+    return new Vec(v.x + w.x, v.y + w.y);
+}
+
+function vec_sub(v, w) {
+    return new Vec(v.x - w.x, v.y - w.y);
+}
+
+function vec_mul(v, t) {
+    return new Vec(v.x * t, v.y * t);
+}
+
+function vec_div(v, t) {
+    return new Vec(v.x / t, v.y / t);
+}
+
 function lines_intersect(p0, p1, q0, q1) {
     // return [t0, t1] such that 
     // p0 + t0 * (p1-p0) = q0 + t1 * (q1-q0)
@@ -8,28 +73,6 @@ function lines_intersect(p0, p1, q0, q1) {
     return [det0 / det, det1 / det];
 }
 
-function norm(v) {
-    return Math.sqrt(v.x*v.x - v.y*v.y);
-}
-
-function distance(p, q) {
-    // p,q: Vec
-    return Math.sqrt((p.x-q.x)*(p.x-q.x) + (p.y-q.y)*(p.y-q.y));
-}
-class Vec {
-    constructor(x,y) {
-        this.x = x;
-        this.y = y;
-    }
-
-    clamp(maxlen) {
-        var l = norm(this);
-        if (l>maxlen) {
-            this.x *= maxlen/l;
-            this.y *= maxlen/l;
-        }
-    }
-}
 class Vertex extends Vec {
     constructor(x, y) {
         super(x, y);
@@ -77,6 +120,10 @@ class Chain {
         return this._length;
     }
 
+    vertex_start() {return this.vertices[0];}
+
+    vertex_end() {return this.vertices[this.vertices.length-1];}
+
     intersection_count(p) {
         // p: Vec
         // return: number of intersections of a vertical upward ray
@@ -96,13 +143,6 @@ class Chain {
             if (y0 > p.y) count ++; // one intersection above!
         }
         return count;
-    }
-
-    evolve(dt) {
-        // extremal vertices are evolved elsewhere
-        for(var i=1;i<this.vertices.length-1;++i) {
-            this.vertices[i].evolve(dt);
-        }
     }
 }
 
@@ -200,6 +240,12 @@ class Cluster {
         return this._perimeter;
     }
 
+    translate(v) {
+        this.each_vertex(vertex => {
+            vertex.add(v)
+        });
+    }
+
     each_vertex(f) {
         this.chains.forEach(function(chain) {
             for(var i=1; i<chain.vertices.length-1; ++i) {
@@ -223,8 +269,8 @@ class Cluster {
             if (!self.chains.includes(chain)) {
                 self.chains.push(chain);
             }
-            add_triple_point(chain.vertices[0]);
-            add_triple_point(chain.vertices[chain.vertices.length-1]);
+            add_triple_point(chain.vertex_start());
+            add_triple_point(chain.vertex_end());
         }
 
         this.regions.forEach(function(region) {
@@ -325,15 +371,22 @@ class Cluster {
         });
 
         // move vertices along forces
-        this.triple_points.forEach(function(v) {
-            v.evolve(dt);
-        });
-
-        this.chains.forEach(function(chain) {
-            chain.evolve(dt);
-        });
+        this.each_vertex(vertex => vertex.evolve(dt));
 
         this.clear_cache();
+
+        // center
+        var v = new Vec(Infinity, Infinity);
+        var w = new Vec(-Infinity, -Infinity);
+        this.each_vertex(vertex => {
+            v.x = Math.min(v.x, vertex.x);
+            v.y = Math.min(v.y, vertex.y);
+            w.x = Math.max(w.x, vertex.x);
+            w.y = Math.max(w.y, vertex.y);
+        });
+        v.add(w);
+        v.div(2);
+        this.each_vertex(vertex => vertex.sub(v));
 
         this.equalize();
 
@@ -350,6 +403,92 @@ class Cluster {
         });
 
         this.compute_forces();
+    }
+
+    add_chain(chain) {
+        const cluster = this;
+        function find_closest(p) {
+            var best_d = Infinity;
+            var best_chain = null;
+            var best_i = null;
+            cluster.chains.forEach(chain => {
+                for(i=1; i<chain.vertices.length-1; ++i) {
+                    const d = vec_distance(chain.vertices[i], p);
+                    if (d < best_d) {
+                        best_d = d;
+                        best_chain = chain;
+                        best_i = i;
+                    }
+                }
+            });
+            return {'d': best_d, 'chain': best_chain, 'i': best_i};
+        }
+
+        const start = find_closest(chain.vertex_end()); // sic: start <- end
+        const end = find_closest(chain.vertex_start()); // sic: end <- start
+
+        if (start.chain.region_right != null) {
+            console.log("cannot find starting point external edge");
+            return;
+        }
+
+        if (end.chain.region_right != null) {
+            console.log("cannot find ending point external edge");
+        }
+
+        var chains = [start.chain];
+        
+        // follow the chains backward along the cluster boundary
+        while(chains[chains.length-1] != end.chain) {
+            var i;
+            for (i=0;i<this.chains.length; ++i) {
+                if (this.chains[i].vertex_end() == chains[chains.length-1].vertex_start()
+                    && this.chains[i].region_right == null) break;
+            }
+            if (i == this.chains.length) {
+                console.log("unable to close path in external region");
+                return;
+            }
+            if (chains.includes(this.chains[i])) {
+                console.log("loop detected while searching for path");
+                return;
+            }
+            chains.push(this.chains[i]);
+        }
+
+        // we are ready to make the surgery!
+
+        function split_chain(p, chain, i) {
+            var new_chain = new Chain();
+            new_chain.vertices = chain.vertices.splice(i);
+            chain.vertices.push(p);
+            new_chain.vertices.splice(0, 0, p);
+            if (chain.region_left != null) {
+                chain.region_left.chains_positive.push(new_chain);
+                new_chain.region_left = chain.region_left;
+            }
+            if (chain.region_right != null) {
+                chain.region_right.chains_negative.push(new_chain);
+                new_chain.region_right = chain.region_right;
+            }            
+            return new_chain;
+        }
+        
+        var new_region = new Region();
+        if (chains.length == 1) {
+            // starting and ending on the same chain
+            console.assert(start.chain == end.chain);
+            if (end.i >= start.i) {
+                console.log("starting point before ending point on the same chain");
+                return;
+            }
+        }
+        split_chain(chain.vertex_end(), start.chain, start.i); // discard last part
+        chains[chains.length-1] = split_chain(chain.vertex_start(), end.chain, end.i);
+        chains.forEach(c => new_regions.chains_negative.push(c));
+        new_regions.chains_positive.push(chain);
+    
+        this.compute_topology();
     }
 }
 

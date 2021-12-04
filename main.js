@@ -4,27 +4,41 @@ class Main {
     constructor() {
         const canvas = $("#canvas")[0];
         this.$div = $("#div");
+
         this.myctx = new MyCtx(0, 0, 10);
         this.myctx.reset_canvas(canvas);
         this.cluster = new_bouquet(3);
-        var self = this;
-        canvas.addEventListener("mousemove", function(evt) {
-            self.mousemove(evt);
-        }, false);
-        this.draw_vertices = 1;
-        this.draw_forces = 1;
-        this.draw_unit_square = 0;
-        this.loop = 0;
+        this.draw_vertices = true;
+        this.draw_forces = true;
+        this.draw_unit_square = false;
+        this.loop = false;
         this.n_regions = -1;
         this.dt = 0.1;
+
+        this.draw_chain = null;
+        canvas.addEventListener("mousemove", evt => {
+            const xy = this.myctx.getCursorPosition(evt);
+            if (evt.buttons == 1) {
+                if (this.draw_chain == null) {
+                    this.draw_chain = new Chain();
+                }
+                this.draw_chain.vertices.push(new Vertex(xy[0], xy[1]));
+            }
+        }, false);
+        canvas.addEventListener("mouseup", evt => {
+            if (this.draw_chain) this.cluster.add_chain(this.draw_chain);
+            this.draw_chain = null;
+        }, false);
+
         this.update();
     }
         
     plot() {
         const ctx = this.myctx;
         ctx.clear();
-        ctx.setStrokeColor("blue");
+
         if (this.draw_unit_square) {
+            ctx.setStrokeColor("blue");
             ctx.beginPath();
             ctx.moveTo(0.0, 0.0);
             ctx.lineTo(1.0, 0.0);
@@ -34,14 +48,17 @@ class Main {
             ctx.stroke();
         }
 
-        this.cluster.chains.forEach(function(chain) {
+        function draw_chain(chain) {
             ctx.beginPath();
             ctx.moveTo(chain.vertices[0].x, chain.vertices[0].y);
             for (var i=1; i<chain.vertices.length; ++i) {
                 ctx.lineTo(chain.vertices[i].x, chain.vertices[i].y);
             }
             ctx.stroke();
-        });
+        }
+
+        ctx.setStrokeColor("blue");
+        this.cluster.chains.forEach(draw_chain);
 
         if (this.draw_forces) {
             ctx.setStrokeColor("green");
@@ -52,6 +69,7 @@ class Main {
                 ctx.stroke();
             });
         }
+
         if (this.draw_vertices) {
             ctx.setStrokeColor("red");
             this.cluster.each_vertex(function(v){
@@ -59,6 +77,11 @@ class Main {
                 ctx.circle(v.x, v.y, 2/ctx.scale);
                 ctx.stroke();
             });
+        }
+        
+        if (this.draw_chain != null) {
+            ctx.setStrokeColor("black");
+            draw_chain(this.draw_chain);
         }
     }
 
@@ -131,15 +154,6 @@ class Main {
         this.cluster.evolve(this.dt);
         this.draw();
         if (this.loop) window.requestAnimationFrame(() => this.update());
-    }
-
-    mousemove(evt) {
-        const xy = this.myctx.getCursorPosition(evt);
-        const x = xy[0];
-        const y = xy[1];
-        this.cursor_x = x;
-        this.cursor_y = y;
-        
     }
 
 }
