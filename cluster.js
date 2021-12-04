@@ -165,6 +165,29 @@ class Cluster {
         // computed:
         this.chains = [];
         this.triple_points = [];
+        this._perimeter = null;
+    }
+
+    clear_cache() {
+        this._perimeter = null;
+        this.regions.forEach(function(region){
+            region._area = null;
+        });
+        this.chains.forEach(function(chain) {
+            chain._length = null;
+            chain._area = null;
+        });
+    }
+
+    perimeter() {
+        if (this._perimeter == null) {
+            var perimeter = 0.0;
+            this.chains.forEach(chain => {
+                perimeter += chain.length();
+            });
+            this._perimeter = perimeter;
+        }
+        return this._perimeter;
     }
 
     each_vertex(f) {
@@ -204,16 +227,6 @@ class Cluster {
                 add_chain(chain);          
                 chain.region_right = region;
             });
-        });
-    }
-
-    clear_cache() {
-        this.regions.forEach(function(region){
-            region._area = null;
-        });
-        this.chains.forEach(function(chain) {
-            chain._length = null;
-            chain._area = null;
         });
     }
 

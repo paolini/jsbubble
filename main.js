@@ -14,6 +14,10 @@ class Main {
         this.draw_vertices = 1;
         this.draw_forces = 1;
         this.draw_unit_square = 0;
+        this.loop = 0;
+        this.n_regions = -1;
+        this.dt = 0.01;
+        this.update();
     }
         
     plot() {
@@ -67,18 +71,19 @@ class Main {
         set_button_text();
         $button.click(() => {
             this.loop = !this.loop;
-            if (this.loop) this.update();
             set_button_text();
+            if (this.loop) this.update();
         });
         this.$div.append($button);
-        this.$div.append($elem("button").text("evolve").click(() => {this.update()}));
-        this.$div.append($elem("p").text("length: " + this.cluster.length));
+        this.$div.append($elem("button").text("step").click(() => {if (!this.loop) this.update()}));
+        this.$div.append($elem("p").attr("id", "perimeter"));
         var $table = $elem("table");
         $table.append($elem("tr")
             .append($elem("th").text("region"))
             .append($elem("th").text("area"))
             .append($elem("th").text("target"))
-            .append($elem("th").text("pressure")));
+            .append($elem("th").text("pressure"))
+            .append($elem("th").text("perimeter")));
         this.cluster.regions.forEach((region,i) => {
             let $input = $elem("input")
                 .attr("id", "target_" + i)
@@ -89,26 +94,39 @@ class Main {
             });
             $table.append($elem("tr")
                 .append($elem("td").text(i))
-                .append($elem("td").text(region.area()))
+                .append($elem("td").attr("id", "area_" + i))
                 .append($elem("td").append($input))
-                .append($elem("td").text(region.pressure)));
+                .append($elem("td").attr("id", "pressure_" + i))
+                .append($elem("td").attr("id", "perimeter_" + i)));
         });
         this.$div.append($table);
+        this.update_html();
     }
 
     update_html() {
-
+        $("#perimeter").text("perimeter: " + this.cluster.perimeter())
+        this.cluster.regions.forEach((region, i) => {
+            $("#area_" + i).text(region.area());
+            $("#target_" + i).attr("value", region.target_area);
+            $("#pressure_" + i).text(region.pressure);
+            $("#perimeter_" + i).text(region.perimeter());
+        });
     }
 
     draw() {
+        if (this.n_regions != this.cluster.regions.length) {
+            // repopulate html if the number of regions has changed
+            this.populate_html();
+            this.n_regions = this.cluster.regions.length;
+        }
         this.plot();
-        this.populate_html();
+        this.update_html();
     }
 
     update() {
-        this.cluster.evolve(0.01);
+        this.cluster.evolve(this.dt);
         this.draw();
-        if (this.loop) window.requestAnimationFrame(this.update());
+        if (this.loop) window.requestAnimationFrame(() => this.update());
     }
 
     mousemove(evt) {
@@ -127,6 +145,4 @@ let main = null;
 $(() => {
     console.log("jsbubble");
     main = new Main();
-    main.loop = false;
-    main.draw();
 });
