@@ -6,25 +6,21 @@ class Main {
         this.$div = $("#div");
         this.myctx = new MyCtx(0, 0, 10);
         this.myctx.reset_canvas(canvas);
-        this.cluster = new Cluster();
-        if (false) {
-            this.cluster.add_bubble(new Vec(0.0, 0.0), 1);
-            this.cluster.add_bubble(new Vec(2.0, 0.0), 1.5);
-        } else {
-            this.cluster.add_n_bubble(new Vec(0,0), 1.0, 3);
-        }
+        this.cluster = new_bouquet(3);
         var self = this;
-        canvas.addEventListener("mousemove", function(evt){
+        canvas.addEventListener("mousemove", function(evt) {
             self.mousemove(evt);
         }, false);
         this.draw_vertices = 1;
+        this.draw_forces = 1;
+        this.draw_unit_square = 0;
     }
         
     plot() {
         const ctx = this.myctx;
         ctx.clear();
         ctx.setStrokeColor("blue");
-        if (0) {
+        if (this.draw_unit_square) {
             ctx.beginPath();
             ctx.moveTo(0.0, 0.0);
             ctx.lineTo(1.0, 0.0);
@@ -34,38 +30,32 @@ class Main {
             ctx.stroke();
         }
 
-        const xs = this.cluster.xs;
-        const ys = this.cluster.ys;
-        this.cluster.regions.forEach(region => {
+        this.cluster.chains.forEach(function(chain) {
             ctx.beginPath();
-            var start = null;
-            region.components.forEach(function(component) {
-                component.forEach(function(p, i) {
-                    if (i==0) {
-                        ctx.moveTo(p.x, p.y);                    
-                    } else {
-                        ctx.lineTo(p.x, p.y);
-                    } 
-                });
-            });
-            ctx.closePath();
+            ctx.moveTo(chain.vertices[0].x, chain.vertices[0].y);
+            for (var i=1; i<chain.vertices.length; ++i) {
+                ctx.lineTo(chain.vertices[i].x, chain.vertices[i].y);
+            }
             ctx.stroke();
         });
-        if (true) {
+
+        if (this.draw_forces) {
             ctx.setStrokeColor("green");
-            this.cluster.vertices.forEach(function(v){
+            this.cluster.each_vertex(function(v){
                 ctx.beginPath();
                 ctx.moveTo(v.x, v.y);
                 ctx.lineTo(v.x + v.force.x, v.y+v.force.y);
                 ctx.stroke();
             });
         }
-        ctx.setStrokeColor("red");
-        this.cluster.vertices.forEach(function(v){
-            ctx.beginPath();
-            ctx.circle(v.x, v.y, 2/ctx.scale);
-            ctx.stroke();
-        });
+        if (this.draw_vertices) {
+            ctx.setStrokeColor("red");
+            this.cluster.each_vertex(function(v){
+                ctx.beginPath();
+                ctx.circle(v.x, v.y, 2/ctx.scale);
+                ctx.stroke();
+            });
+        }
     }
 
     populate_html() {
@@ -90,14 +80,16 @@ class Main {
             .append($elem("th").text("target"))
             .append($elem("th").text("pressure")));
         this.cluster.regions.forEach((region,i) => {
-            let $input = $elem("input").attr("value", region.target)
+            let $input = $elem("input")
+                .attr("id", "target_" + i)
+                .attr("value", region.target_area)
                 .attr("size", 5).change((event) => {
                 let target = parseFloat(event.target.value);
-                region.target = target;
+                region.target = target; 
             });
             $table.append($elem("tr")
                 .append($elem("td").text(i))
-                .append($elem("td").text(region.compute_area()))
+                .append($elem("td").text(region.area()))
                 .append($elem("td").append($input))
                 .append($elem("td").text(region.pressure)));
         });
@@ -114,7 +106,7 @@ class Main {
     }
 
     update() {
-        this.cluster.evolve(0.1);
+        this.cluster.evolve(0.01);
         this.draw();
         if (this.loop) window.requestAnimationFrame(this.update());
     }

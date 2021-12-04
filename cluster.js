@@ -26,112 +26,195 @@ class Vertex extends Vec {
     constructor(x, y) {
         super(x, y);
         this.force = new Vec(0.0, 0.0);
-        this.edges = [];
+    }
+
+    evolve(dt) {
+        this.x += dt * this.force.x;
+        this.y += dt * this.force.y;
     }
 }
-class Region {
-    constructor(cluster, area, pressure) {
-        this.cluster = cluster;
-        this.components = []; // list of list of vertices
-        this.area = area;
-        this.pressure = pressure;
+
+class Chain {
+    constructor() {
+        this.vertices = [];
+        // computed:
+        this.region_left = null;
+        this.region_right = null;
+        this._length = null;
+        this._area = null;
     }
 
-    has_vertex(v) {
-        for (var j=0; j<this.components.length; ++j) {
-            const component = this.components[j];
-            for (var i=0; i<component.length; ++i) {
-                if (component[i] == v) return true;
-            }
-        }
-        return false;
-    }
-
-    compute_area() {
+    area() {
+        if (this._area != null) return this._area;
         var area2 = 0.0;
+        for (var i=1; i<this.vertices.length; ++i) {
+            const v = this.vertices[i-1];
+            const w = this.vertices[i];
+            area2 += (v.y + w.y) * (v.x - w.x);
+        }            
+        this._area = 0.5 * area2;
+        return this._area;
+    }
 
-        this.components.forEach(function(component) {
-            for (var i=0; i<component.length; ++i) {
-                var v = component[i];
-                var w = i+1 < component.length ? component[i+1] : component[0];
-                area2 += (v.y + w.y) * (v.x - w.x);
-            }            
-        });
+    length() {
+        if (this._length != null) return this._length;
+        var l = 0.0;
+        for (var i=1; i<this.vertices.length; ++i) {
+            const v = this.vertices[i-1];
+            const w = this.vertices[i];
+            l += Math.sqrt(Math.pow(w.x-v.x, 2) + Math.pow(w.y-v.y, 2));
+        }
+        this._length = l;
+        return this._length;
+    }
 
-        return 0.5 * area2;
+    intersection_count(p) {
+        // p: Vec
+        // return: number of intersections of a vertical upward ray
+        var count = 0;
+        for (var i=1; i<this.vertices.length; ++i) {
+            const k = this.vertices[i-1];
+            const j = this.vertices[i];
+            if (j.x < p.x && k.x < p.x) continue;
+            if (j.x > p.x && k.x > p.x) continue;
+            if (j.x == p.x || k.x == p.x) {
+                return -1000000000;
+            }
+            var y0 = j.y + (p.x - j.x)*(k.y-j.y)/(k.x-j.x);
+            if (y0 == p.y) {
+                return 0; // on the boundary!
+            } 
+            if (y0 > p.y) count ++; // one intersection above!
+        }
+        return count;
+    }
+
+    evolve(dt) {
+        // extremal vertices are evolved elsewhere
+        for(var i=1;i<this.vertices.length-1;++i) {
+            this.vertices[i].evolve(dt);
+        }
+    }
+}
+
+class Region {
+    constructor(target_area=1.0) {
+        this.chains_positive = [];
+        this.chains_negative = [];
+
+        this.target_area = target_area;
+        
+        // computed:
+        this.pressure = 1.0;  // hint pressure
+        this.cluster = null;
+        this._area = null;
+        this._perimeter = null;
+    }
+
+    area() {
+        if (this._area == null) {
+            var area = 0.0;
+            this.chains_positive.forEach(function(chain) {
+                area += chain.area();
+            });
+            this.chains_negative.forEach(function(chain) {
+                area -= chain.area();
+            });
+            this._area = area;
+        }
+        return this._area;
+    }
+
+    perimeter() {
+        if (this._perimeter == null) {
+            var perimeter = 0.0;
+            this.chains_positive.forEach(function(chain) {
+                perimeter += chain.length();
+            });
+            this.chains_negative.forEach(function(chain) {
+                perimeter += chain.length();
+            });
+            this._perimeter = perimeter;
+        }
+        return this._perimeter;
     }
 
     is_inside(p) { // p: Vec
         while (true) {
             var count = 0;
-            for (var j=0;count >=0 && j<this.components.length; ++j) {
-                const component = this.components[j];
-                for (var i=0; i<component.length; ++i) {
-                    const k = component[i];
-                    const j = i+1 < component.length ? component[i+1] : component[0];
-                    if (j.x < p.x && k.x < p.x) continue;
-                    if (j.x > p.x && k.x > p.x) continue;
-                    if (j.x == p.x || k.x == p.x) {
-                        // bad luck!! retry...
-                        p = new Vec(p.x + Math.random()*0.0000001, p.y);
-                        count = -1;
-                        break;
-                    }
-                    var y0 = j.y + (p.x - j.x)*(k.y-j.y)/(k.x-j.x);
-                    if (y0 == p.y) {
-                        count = 0; // on the boundary!
-                        return true; 
-                    } 
-                    if (y0 > p.y) count ++; // one intersection above!
-                }
-            }
+            
+            this.chains_positive.forEach(function(chain) {
+                count += chain.intersection_count(p);
+            });
+
+            this.chains_negative.forEach(function(chain) {
+                count += chain.intersection_count(p);
+            });
+
             if (count >= 0) return count % 2 ? true : false;
+
+            // bad luck!! retry...
+            p = new Vec(p.x + Math.random()*0.0000001, p.y);
         }
-    }
-
-    ray_hits(p, q) { // p: Vec, q: Vec
-        // fire a ray from point p
-        // towards point q:
-        // p+t(q-p)
-        // and find first positive t<1 of contact with region
-
-        var hit = { // best hit so far
-            t: Infinity, 
-            vertex: null,
-            s: null
-        }
-
-        var start = null;
-        const dp0 = new Vec(q.x - p.x, q.y - p.y);
-        for (var j=0; j<this.components.length; ++j) {
-            const component = this.components[j];
-            for (var i=0;i<component.length;i++) {
-                const p0 = component[i];
-                const p1 = component[i+1<component.length?i+1:0];
-
-                if (p.x<p0.x && p.x<p1.x && q.x<p0.x && q.x<p1.x) continue;
-                if (p.x>p0.x && p.x>p1.x && q.x>p0.x && q.x>p1.x) continue;
-                if (p.y<p0.y && p.y<p1.y && q.y<p0.y && q.y<p1.y) continue;
-                if (p.y>p0.y && p.y>p1.y && q.y>p0.y && q.y>p1.y) continue;
-                const h = lines_intersect(p, q, p0, p1);
-                const t = h[0];
-                const s = h[1];
-                if (s<0 || s>1 || t<0) continue;
-                if (t < hit.t) {
-                    hit.t = t;
-                    hit.component = component;
-                    hit.component_index = i; 
-                    hit.s = s;
-                }
-            }
-        }
-        return hit;
     }
 }
 class Cluster {
     constructor() {
-        this.vertices = [];
         this.regions = []; 
+
+        // computed:
+        this.chains = [];
+        this.triple_points = [];
+    }
+
+    each_vertex(f) {
+        this.chains.forEach(function(chain) {
+            for(var i=1; i<chain.vertices.length-1; ++i) {
+                f(chain.vertices[i]);
+            }
+        });
+        this.triple_points.forEach(function(vertex) {
+            f(vertex);
+        });
+    }
+
+    compute_topology() {
+        var self = this;
+        function add_triple_point(vertex) {
+            if (!self.triple_points.includes(vertex)) {
+                self.triple_points.push(vertex);
+            }
+        }
+
+        function add_chain(chain) {
+            if (!self.chains.includes(chain)) {
+                self.chains.push(chain);
+            }
+            add_triple_point(chain.vertices[0]);
+            add_triple_point(chain.vertices[chain.vertices.length-1]);
+        }
+
+        this.regions.forEach(function(region) {
+            region.cluster = self;
+            region.chains_positive.forEach(function(chain) {
+                add_chain(chain);   
+                chain.region_left = region;
+            });
+            region.chains_negative.forEach(function(chain) {
+                add_chain(chain);          
+                chain.region_right = region;
+            });
+        });
+    }
+
+    clear_cache() {
+        this.regions.forEach(function(region){
+            region._area = null;
+        });
+        this.chains.forEach(function(chain) {
+            chain._length = null;
+            chain._area = null;
+        });
     }
 
     region_containing(p) {
@@ -141,264 +224,114 @@ class Cluster {
         return null;
     }
 
-    compute_topology() {
-        // clear topology:
-        this.vertices.forEach(function(vertex) {
-            vertex.topology = {
-                'regions': [], // [{region, vertex_next, vertex_prev}, ...]
-                'vertices': [] // [[adjacent vertices...], ...]
-            };
-        });
-
-        // compute topology:
-        this.regions.forEach(function(region) {
-            region.components.forEach(function(component){
-                for(var i=0; i<component.length; ++i) {
-                    const vertex = component[i];
-                    const vertex_next = component[i+1<component.length?i+1:0];
-                    const vertex_prev = component[i>0?i-1:component.length-1];
-                    vertex.topology.regions.push({
-                        'region': region,
-                        'vertex_next': vertex_next,
-                        'vertex_prev': vertex_prev
-                    });
-                    if (!vertex.topology.vertices.includes(vertex_prev))
-                        vertex.topology.vertices.push(vertex_prev);
-                    if (!vertex.topology.vertices.includes(vertex_next))
-                        vertex.topology.vertices.push(vertex_next);
-                }
-            });
-        });
-
-        // add external region:
-        this.vertices.forEach(function(vertex) {
-            const regions = vertex.topology.regions;
-            const vertices = vertex.topology.vertices;
-            console.assert(regions.length>=1);
-            console.assert(regions.length<=3);            
-            if (regions.length == 1) {
-                console.assert(vertices.length == 2);
-                // internal vertex of an external edge
-                regions.push({  
-                    'region': null,
-                    'vertex_next': regions[0].vertex_prev,
-                    'vertex_prev': regions[0].vertex_next
-                });
-            } else if (regions.length == 2) {
-                if (vertices.length == 3) {
-                    // triple point on the external edges
-                    if (regions[0].vertex_next == regions[1].vertex_prev) {
-                        regions.push({
-                            'region': null,
-                            'vertex_next': regions[0].vertex_prev,
-                            'vertex_prev': regions[1].vertex_next
-                        });
-                    } else {
-                        assert(regions[1].vertex_next == regions[0].vertex_prev)
-                        regions.push({
-                            'region': null,
-                            'vertex_next': regions[1].vertex_prev,
-                            'vertex_prev': regions[0].vertex_next
-                        });
-                    }
-                } else {
-                    assert (vertices.length == 2);
-                }
-            }
-        });
-    }
-
     clear_forces() {
-        this.vertices.forEach(function(v) {
-            v.force.x = 0.0;
-            v.force.y = 0.0;
-            v.edges.length = 0;
+        this.chains.forEach(function(chain) {
+            chain.vertices.forEach(function(vertex) {
+                vertex.force.x = 0.0;
+                vertex.force.y = 0.0;
+            });
         });
     }
 
     compute_forces() {
         this.clear_forces();
 
-        this.vertices.forEach(function(v) {
-
+        this.chains.forEach(function(chain) {
+            var ds = Math.pow(chain.length() / (chain.vertices.length-1), 2);
             // curvature
-            var fx = 0.0, fy = 0.0;
-            v.topology.vertices.forEach(function(w) {
-                fx += w.x;
-                fy += w.y;
-            });
-            fx -= v.x*v.topology.vertices.length;
-            fy -= v.y*v.topology.vertices.length;
-            v.force.x += fx;
-            v.force.y += fy;             
+            for(var i=1; i<chain.vertices.length; ++i) {
+                const v = chain.vertices[i-1];
+                const w = chain.vertices[i];
 
-            // pressure
-            v.topology.regions.forEach(function(r) {
-                if (r.region) {
-                    const prev = r.vertex_prev;
-                    const next = r.vertex_next;
-    
-                    const wx = next.y - prev.y;
-                    const wy = - next.x + prev.x;
-                    const l = Math.sqrt(wx*wx + wy*wy);
+                const fx = (w.x-v.x) / ds;
+                const fy = (w.y-v.y) / ds;
+                v.force.x += fx;
+                v.force.y += fy;
+                w.force.x -= fx;
+                w.force.y -= fy;
+            }
+            
+            if (true) {
+                // pressure
+                var p = 0.0;
+                if (chain.region_left != null) p += chain.region_left.pressure;
+                if (chain.region_right != null) p -= chain.region_right.pressure;
+                const n = chain.vertices.length;
+                for (var i=0; i<n; ++i) {
+                    const v = chain.vertices[i>0?i-1:i];
+                    const z = chain.vertices[i];
+                    const w = chain.vertices[i<n-1?i+1:i];
+                    const fx = w.y-v.y;
+                    const fy = v.x-w.x;
+                    const l = Math.sqrt(Math.pow(fx,2) + Math.pow(fy,2));
 
-                    v.force.x += r.region.pressure * wx ;
-                    v.force.y += r.region.pressure * wy ;
+                    z.force.x += p*fx/l;
+                    z.force.y += p*fy/l;
                 }
-            })
+            }
         });
-    }
-
-    bump_vertex_new(v, t=1.0) { // v: Vertex
-        if (v.force.x == 0.0 && v.force.y == 0.0) return;
-        var vv = new Vec(v.x + t*v.force.x, v.y + t*v.force.y);
-        this.regions.forEach(function(region) {
-            if (v.edges.find(info => info.region==region)) return; // vertex belongs to this region
-            region.components.forEach(function(component) {
-                for(var i=0; i<component.length; ++i) {
-                    var j = i+1<component.length ? i+1 : 0;
-                    hit = lines_intersect(v, vv, component[i], component[j]);
-                    /// TO BE COMPLETED!!!
-                }                
-            });
-        });
-    }
-
-    bump_vertex(v) { // v: Vertex
-        // does not change the number of vertices
-        if (v.force.x == 0.0 && v.force.y == 0.0) return;
-        var t = 1.0; // allowed movement t*v.force
-        var hit = {t: Infinity}
-        for (var i=0; i<this.regions.length; ++i) {
-            const region = this.regions[i];
-            if (region.has_vertex(v)) continue; // vertex is on region contour
-            var h = region.ray_hits(v, new Vec(v.x + v.force.x, v.y + v.force.y));
-            if (h.t < hit.t) hit = h;
-        }
-        if (hit.t<=1.0) {
-            // BUMP!
-            v.x += hit.t * v.force.x;
-            v.y += hit.t * v.force.y;
-            hit.component.splice(hit.component_index+1, 0, v);
-        } else {
-            v.x += v.force.x;
-            v.y += v.force.y;
-        }
-        v.force.x = 0.0;
-        v.force.y = 0.0;
-    }
-
-    bump() {
-        var self = this;
-        this.vertices.forEach(function(v) {self.bump_vertex(v);});
-    }
-
-    evolve_vertex(v, dt) {
-        v.x += dt * v.force.x;
-        v.y += dt * v.force.y;
     }
 
     evolve(dt) {
-        this.regions.forEach(function(region) {region.last_area = region.compute_area()});
+        this.regions.forEach(function(region){
+            region.area_prev = region.area();
+        });
+
         // move vertices along forces
-        var self = this;
-        this.vertices.forEach(function(v) {
-            self.evolve_vertex(v, dt);
-        })
-        // compute forces
+        this.triple_points.forEach(function(v) {
+            v.evolve(dt);
+        });
+
+        this.chains.forEach(function(chain) {
+            chain.evolve(dt);
+        });
+
+        this.clear_cache();
+
+        // update pressures
+        this.regions.forEach(function (region) {
+            var area = region.area();
+            var target = Math.max(Math.min(region.target_area, 1.05*area),0.95*area);
+            const darea = target - area;
+            const p = darea / dt;
+            region.pressure += 0.5*(p-region.pressure);
+        });
+
         this.compute_forces();
     }
+}
 
-    add_bubble(center, r, n=15) {
-        // construct cluster with a single bubble
-        var in_region = this.region_containing(center);
-        if (in_region) {
-            console.log("currently cannot add region inside other region");
-            return 0;
-        }
-        var new_region = new Region(this, Math.PI*r*r, 1.0/r);
-        var component = [];
-        var w = null;
-        for(var i=0; i<n; ++i) {
-            const t = 2.0 * Math.PI * i / n;
-            var v =  new Vertex(center.x, center.y);
-            v.force.x = r * Math.cos(t);
-            v.force.y = r * Math.sin(t);
-            v.edges.push({
-                'region': new_region,
-                'component': component,
-                'i': i,
-                'next': (i+1<n?null:component[0]),
-                'prev': (i>0?component[component.length-1]:null)
-            });
-            if (i>0) {
-                w.edges[0].next = v;
-            }
-            if (i+1==n) {
-                component[0].edges[0].prev = v;
-            }
-            w = v;
-            component.push(v);
-            this.vertices.push(v);
-        } 
-        new_region.components.push(component);
-        this.regions.push(new_region);
-        this.evolve();
-        return 1;
+function chain(v, w, n=5) {
+    var chain = new Chain();
+    chain.vertices.push(v);
+    for (var i=1; i<n; ++i) {
+        chain.vertices.push(new Vertex(
+            (n-i)*v.x/n + i*w.x/n,
+            (n-i)*v.y/n + i*w.y/n ));
     }
+    chain.vertices.push(w);
+    return chain;
+}
 
-    add_n_bubble(center, r, n, n_vertices=5) {
-        //create vertices
-        var segments = [];
-        var arcs = [];
-        const alpha = 2 * Math.PI / n;
-
-        var origin = new Vertex(0.0, 0.0);
-
-        this.vertices.push(origin);
-
-        for (var k=0; k<n; ++k) {
-            var segment = [];
-            var angle = 0.5*alpha + k*alpha;
-            for (var j=1; j<n_vertices; ++j) {
-                var t = r*j/n_vertices;
-                var v = new Vertex(
-                    center.x + t * Math.cos(angle), 
-                    center.y + t * Math.sin(angle));
-                segment.push(v);
-                this.vertices.push(v);
-            }
-            segments.push(segment);
-            angle = k*alpha;
-            var arc = [];
-            for (var j=0; j-1<2*n_vertices; ++j) {
-                var a = angle - 0.5*Math.PI + Math.PI*j/n_vertices/2;
-                var v = new Vertex(
-                    center.x + r*Math.cos(angle) + r*Math.cos(a),
-                    center.y + r*Math.sin(angle) + r*Math.sin(a));
-                arc.push(v);
-                this.vertices.push(v);
-            }
-            arcs.push(arc);
-        }
-
-        // create regions
-        for (var k=0; k<n; ++k) {
-            var region = new Region(this, Math.PI * r * r, 1/r);
-            var component = [origin];
-            segments[k].reverse();
-            component = component
-                .concat(segments[(k+n-1) % n])
-                .concat(arcs[k])
-                .concat(segments[k])
-            segments[k].reverse();
-            region.components.push(component);
-            this.regions.push(region);
-        }
-
-        // compute adjacency information
-        this.compute_topology();
-        this.compute_forces();
-        return n;
+function new_bouquet(n) {
+    var cluster = new Cluster();
+    const origin = new Vertex(0,0);
+    var vertices = [];
+    var chains = [];
+    for(var i=0; i<n; ++i) {
+        const t = 2 * Math.PI * i / n;
+        vertices.push(new Vertex(Math.cos(t), Math.sin(t)));
+        chains.push(chain(origin, vertices[i], 5));
     }
+    for(var i=0; i<n; ++i) {
+        var region = new Region();
+        region.chains_positive.push(chains[i]);
+        region.chains_positive.push(chain(vertices[i], vertices[(i+1)%n], 10));
+        region.chains_negative.push(chains[(i+1)%n]);
+        cluster.regions.push(region);
+    }
+    cluster.clear_cache();
+    cluster.compute_topology();
+    cluster.compute_forces();
+    return cluster;
 }
