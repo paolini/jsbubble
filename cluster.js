@@ -265,8 +265,9 @@ class Cluster {
                 const v = chain.vertices[i-1];
                 const w = chain.vertices[i];
 
-                const fx = (w.x-v.x) / ds;
-                const fy = (w.y-v.y) / ds;
+                const fx = (w.x-v.x)/ds;
+                const fy = (w.y-v.y)/ds;
+
                 v.force.x += fx;
                 v.force.y += fy;
                 w.force.x -= fx;
@@ -312,10 +313,14 @@ class Cluster {
 
         // update pressures
         this.regions.forEach(function (region) {
-            var area = region.area();
-            var target = Math.max(Math.min(region.area_target, 1.05*area),0.95*area);
-            var p = (target - area) / dt;
-            region.pressure += 0.3*(p-region.pressure);
+            if (0) {
+                var area = region.area();
+                var target = Math.max(Math.min(region.area_target, 1.05*area),0.95*area);
+                var p = (target - area) / dt;
+                region.pressure += 0.3*(p-region.pressure);
+            } else {
+                region.pressure = region.area_target - region.area();
+            } 
         });
 
         this.compute_forces();
