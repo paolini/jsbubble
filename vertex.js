@@ -5,7 +5,7 @@ class Vertex extends Vec {
     }
 
     evolve(dt) {
-        // this.clamp(2.0); // speed limit!
+        this.force.clamp(0.1); // speed limit!
         this.x += dt * this.force.x;
         this.y += dt * this.force.y;
     }

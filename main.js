@@ -8,12 +8,12 @@ class Main {
         this.myctx = new MyCtx(0, 0, 10);
         this.myctx.reset_canvas(canvas);
         this.cluster = new_bouquet(3);
-        this.draw_vertices = true;
+        this.draw_vertices = false;
         this.draw_forces = true;
         this.draw_unit_square = false;
-        this.loop = false;
+        this.loop = true;
         this.n_regions = -1;
-        this.dt = 0.1;
+        this.dt = 0.2;
 
         this.draw_chain = null;
         canvas.addEventListener("mousemove", evt => {
@@ -22,11 +22,16 @@ class Main {
                 if (this.draw_chain == null) {
                     this.draw_chain = new Chain();
                 }
-                this.draw_chain.vertices.push(new Vertex(xy[0], xy[1]));
+                var p = new Vec(xy[0], xy[1]);
+                if (this.draw_chain.vertices.length == 0 || vec_distance(this.draw_chain.vertex_end(), p) > this.cluster.ds) {
+                    this.draw_chain.vertices.push(new Vertex(xy[0], xy[1]));
+                }
             }
         }, false);
         canvas.addEventListener("mouseup", evt => {
-            if (this.draw_chain) this.cluster.add_chain(this.draw_chain);
+            if (this.draw_chain) {
+                this.cluster.add_chain(this.draw_chain);
+            }
             this.draw_chain = null;
         }, false);
 
@@ -107,10 +112,10 @@ class Main {
         var $table = $elem("table");
         $table.append($elem("tr")
             .append($elem("th").attr('style', 'width: 2em').text("region"))
-            .append($elem("th").attr('style', 'width: 10em').text("area"))
-            .append($elem("th").attr('style', 'width: 10em').text("target"))
-            .append($elem("th").attr('style', 'width: 10em').text("pressure"))
-            .append($elem("th").attr('style', 'width: 10em').text("perimeter")));
+            .append($elem("th").attr('style', 'width: 5em').text("area"))
+            .append($elem("th").attr('style', 'width: 5em').text("target"))
+            .append($elem("th").attr('style', 'width: 5em').text("pressure"))
+            .append($elem("th").attr('style', 'width: 5em').text("perimeter")));
         this.cluster.regions.forEach((region,i) => {
             let $input = $elem("input")
                 .attr("id", "target_" + i)
@@ -131,12 +136,12 @@ class Main {
     }
 
     update_html() {
-        $("#perimeter").text("perimeter: " + this.cluster.perimeter())
+        $("#perimeter").text("perimeter: " + this.cluster.perimeter().toFixed(4));
         this.cluster.regions.forEach((region, i) => {
-            $("#area_" + i).text(region.area());
-            $("#target_" + i).attr("value", region.area_target);
-            $("#pressure_" + i).text(region.pressure);
-            $("#perimeter_" + i).text(region.perimeter());
+            $("#area_" + i).text(region.area().toFixed(4));
+            $("#target_" + i).attr("value", region.area_target.toFixed(4));
+            $("#pressure_" + i).text(region.pressure.toFixed(4));
+            $("#perimeter_" + i).text(region.perimeter().toFixed(4));
         });
     }
 

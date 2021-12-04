@@ -2,6 +2,8 @@ class Cluster {
     constructor() {
         this.regions = []; 
 
+        this.ds = 0.1; // length of segments
+
         // computed:
         this.chains = [];
         this.triple_points = [];
@@ -134,21 +136,15 @@ class Cluster {
     }
 
     equalize() {
-        var count = 0;
-        this.chains.forEach(chain => {
-            count += chain.vertices.length-1;
-        });
-        const ds_avg = this.perimeter() / count; // average length of segment
-
         this.chains.forEach(chain => {
             const n = chain.vertices.length-1;
-            if (ds_avg * (n+1) < chain.length()) {
+            if (this.ds * (n+1) < chain.length()) {
                 // add one more segment
                 const k = Math.floor(Math.random()*(n-1));
                 const v = chain.vertices[k]; // insert between this
                 const w = chain.vertices[k+1]; // and this
                 chain.vertices.splice(k+1, 0, new Vertex((v.x+w.x)/2, (v.y+w.y)/2));
-            } else if (n>1 && ds_avg * (n-1) > chain.length()) {
+            } else if (n>1 && this.ds * (n-1) > chain.length()) {
                 const k = Math.floor(Math.random()*(n-1));
                 chain.vertices.splice(k+1, 1);
             }
@@ -183,14 +179,7 @@ class Cluster {
 
         // update pressures
         this.regions.forEach(function (region) {
-            if (0) {
-                var area = region.area();
-                var target = Math.max(Math.min(region.area_target, 1.05*area),0.95*area);
-                var p = (target - area) / dt;
-                region.pressure += 0.3*(p-region.pressure);
-            } else {
-                region.pressure = region.area_target - region.area();
-            } 
+            region.pressure = (region.area_target - region.area())/region.area_target;
         });
 
         this.compute_forces();
@@ -198,6 +187,10 @@ class Cluster {
 
     add_chain(chain) {
         const cluster = this;
+        if (chain.vertices.length <= 2) {
+            console.log("too few vertices in chain");
+            return;
+        }
         function find_closest(p) {
             var best_d = Infinity;
             var best_chain = null;
@@ -279,6 +272,9 @@ class Cluster {
         chains.forEach(c => new_region.chains_negative.push(c));
         new_region.chains_positive.push(chain);
         this.regions.push(new_region);
+
+        this.clear_cache();
+        new_region.area_target = new_region.area();
     
         this.compute_topology();
     }

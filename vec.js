@@ -39,7 +39,7 @@ class Vec {
 }
 
 function vec_norm(v) {
-    return Math.sqrt(v.x*v.x - v.y*v.y);
+    return Math.sqrt(v.x*v.x + v.y*v.y);
 }
 
 function vec_distance(p, q) {
