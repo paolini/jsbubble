@@ -37,13 +37,8 @@ class Main {
             this.draw_chain = null;
         }
 
-        canvas.addEventListener("mousemove", on_mouse_move.bind(this), false);
-        canvas.addEventListener("touchmove", on_mouse_move.bind(this), false);
-        canvas.addEventListener("penmove", on_mouse_move.bind(this), false);
-        
-        canvas.addEventListener("mouseup", on_mouse_up.bind(this), false);
-        canvas.addEventListener("touchup", on_mouse_up.bind(this), false);
-        canvas.addEventListener("penup", on_mouse_up.bind(this), false);
+        canvas.addEventListener("pointermove", on_mouse_move.bind(this), false);
+        canvas.addEventListener("pointerup", on_mouse_up.bind(this), false);
 
         this.update();
     }
