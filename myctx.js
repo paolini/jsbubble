@@ -11,6 +11,7 @@ class MyCtx {
     getCursorPosition(event) {
         if (this.canvas == null) return null;
         const rect = this.canvas.getBoundingClientRect();
+        if (event.touches) event = event.touches[0]; // mobile devices
         const x = this.x_ctx(event.clientX - rect.left);
         const y = this.y_ctx(event.clientY - rect.top);
         return [x, y];

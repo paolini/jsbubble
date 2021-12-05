@@ -3,6 +3,7 @@ function $elem(s) {return $(`<${s}></${s}>`);}
 class Main {
     constructor() {
         const canvas = $("#canvas")[0];
+        canvas.style.touchAction = "none";
         this.$div = $("#div");
 
         this.myctx = new MyCtx(0, 0, 10);
@@ -16,7 +17,8 @@ class Main {
         this.dt = 0.2;
 
         this.draw_chain = null;
-        canvas.addEventListener("mousemove", evt => {
+
+        function on_mouse_move(evt) {
             const xy = this.myctx.getCursorPosition(evt);
             if (evt.buttons == 1) {
                 if (this.draw_chain == null) {
@@ -27,13 +29,16 @@ class Main {
                     this.draw_chain.vertices.push(new Vertex(xy[0], xy[1]));
                 }
             }
-        }, false);
-        canvas.addEventListener("mouseup", evt => {
+        }
+        function on_mouse_up(evt) {
             if (this.draw_chain) {
                 this.cluster.add_chain(this.draw_chain);
             }
             this.draw_chain = null;
-        }, false);
+        }
+
+        canvas.addEventListener("mousemove", on_mouse_move.bind(this), false);
+        canvas.addEventListener("mouseup", on_mouse_up.bind(this), false);
 
         this.update();
     }
