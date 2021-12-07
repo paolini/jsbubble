@@ -49,7 +49,8 @@ class Main {
         
     plot() {
         const ctx = this.myctx;
-        ctx.clear();
+        if (this.custom) ctx.clear();
+        else ctx.background("#eee");
 
         if (this.draw_unit_square) {
             ctx.setStrokeColor("blue");
@@ -71,7 +72,7 @@ class Main {
             ctx.stroke();
         }
 
-        ctx.setStrokeColor("blue");
+        ctx.setStrokeColor(this.custom?"orange":"blue");
         this.cluster.chains.forEach(draw_chain);
 
         if (this.draw_forces) {
@@ -101,14 +102,14 @@ class Main {
         }
         
         if (this.draw_chain != null) {
-            ctx.setStrokeColor("black");
+            ctx.setStrokeColor(this.custom?"orange":"black");
             draw_chain(this.draw_chain);
         }
     }
 
     populate_html() {
         this.$div.empty();
-        if (this.custom) this.$div.hide();
+        // if (this.custom) this.$div.hide();
         let $button = $elem("button");
         const set_button_text = () => {
             $button.text(this.loop?"stop":"start");
@@ -125,13 +126,16 @@ class Main {
             set_button_text();
             this.update();
         }));
+        this.$div.append($elem("button").text("reset").click(() => {
+            this.cluster = new Cluster();
+        }));
         this.$div.append($elem("p").attr("id", "perimeter"));
         var $table = $elem("table");
         $table.append($elem("tr")
             .append($elem("th").attr('style', 'width: 2em').text("region"))
             .append($elem("th").attr('style', 'width: 5em').text("area"))
             .append($elem("th").attr('style', 'width: 5em').text("target"))
-            .append($elem("th").attr('style', 'width: 5em').text("pressure"))
+            .append($elem("th").attr('style', 'width: 5em').text(""))
             .append($elem("th").attr('style', 'width: 5em').text("perimeter")));
         this.cluster.regions.forEach((region,i) => {
             let $input = $elem("input")
