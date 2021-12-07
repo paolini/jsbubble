@@ -208,70 +208,102 @@ class Cluster {
             return {'d': best_d, 'chain': best_chain, 'i': best_i};
         }
 
-        const start = find_closest(chain.vertex_end()); // sic: start <- end
-        const end = find_closest(chain.vertex_start()); // sic: end <- start
-
-        if (start.chain.region_right != null) {
-            console.log("cannot find starting point external edge");
-            return;
-        }
-
-        if (end.chain.region_right != null) {
-            console.log("cannot find ending point external edge");
-        }
-
-        var chains = [start.chain];
-        
-        // follow the chains backward along the cluster boundary
-        while(chains[chains.length-1] != end.chain) {
-            var i;
-            for (i=0;i<this.chains.length; ++i) {
-                if (this.chains[i].vertex_end() == chains[chains.length-1].vertex_start()
-                    && this.chains[i].region_right == null) break;
+        var new_region = null;
+        if (this.regions.length == 0) {
+            new_region = new Region();
+            if (chain.area()<0) {
+                chain.vertices.reverse();
             }
-            if (i == this.chains.length) {
-                console.log("unable to close path in external region");
+            chain.vertices.push(chain.vertices[0]); // closed curve
+            new_region.chains_positive.push(chain);
+            this.regions.push(new_region);
+        } else {
+            const start = find_closest(chain.vertex_end()); // sic: start <- end
+            const end = find_closest(chain.vertex_start()); // sic: end <- start
+
+            if (start.chain.region_right != null) {
+                console.log("cannot find starting point external edge");
                 return;
             }
-            if (chains.includes(this.chains[i])) {
-                console.log("loop detected while searching for path");
-                return;
-            }
-            chains.push(this.chains[i]);
-        }
 
-        // we are ready to make the surgery!
+            if (end.chain.region_right != null) {
+                console.log("cannot find ending point external edge");
+            }
 
-        function split_chain(p, chain, i) {
-            var new_chain = new Chain();
-            new_chain.vertices = chain.vertices.splice(i);
-            chain.vertices.push(p);
-            new_chain.vertices.splice(0, 0, p);
-            if (chain.region_left != null) {
-                chain.region_left.chains_positive.push(new_chain);
-                new_chain.region_left = chain.region_left;
+            var chains = [start.chain];
+            
+            // follow the chains backward along the cluster boundary
+            while(chains[chains.length-1] != end.chain) {
+                var i;
+                for (i=0;i<this.chains.length; ++i) {
+                    if (this.chains[i].vertex_end() == chains[chains.length-1].vertex_start()
+                        && this.chains[i].region_right == null) break;
+                }
+                if (i == this.chains.length) {
+                    console.log("unable to close path in external region");
+                    return;
+                }
+                if (chains.includes(this.chains[i])) {
+                    console.log("loop detected while searching for path");
+                    return;
+                }
+                chains.push(this.chains[i]);
             }
-            if (chain.region_right != null) {
-                chain.region_right.chains_negative.push(new_chain);
-                new_chain.region_right = chain.region_right;
-            }            
-            return new_chain;
-        }
-        
-        var new_region = new Region();
-        if (chains.length == 1) {
-            // starting and ending on the same chain
-            console.assert(start.chain == end.chain);
-            if (end.i >= start.i) {
-                console.log("starting point before ending point on the same chain");
-                return;
+
+            // we are ready to make the surgery!
+
+            function split_chain(p, chain, i) {
+                var new_chain = new Chain();
+                new_chain.vertices = chain.vertices.splice(i);
+                chain.vertices.push(p);
+                new_chain.vertices.splice(0, 0, p);
+                if (chain.region_left != null) {
+                    chain.region_left.chains_positive.push(new_chain);
+                    new_chain.region_left = chain.region_left;
+                }
+                if (chain.region_right != null) {
+                    chain.region_right.chains_negative.push(new_chain);
+                    new_chain.region_right = chain.region_right;
+                }            
+                return new_chain;
             }
+            
+            new_region = new Region();
+            /*
+            if (chains.length == 1) {
+                // starting and ending on the same chain
+                console.assert(start.chain == end.chain);
+                if (end.i >= start.i) {
+                    console.log("starting point before ending point on the same chain");
+                    return;
+                }
+            }
+            */
+
+            /*
+            if (start.chain.vertex_end() == start.chain.vertex_start()) {
+                // closed chain 
+                const p = chain.vertex_end();
+                start.chain.vertices.splice(0,1); // remove first (repeated) vertex
+                var tail = start.chain.vertices.splice(start.i);
+                start.chain.vertices = [p].concat(tail).concat(start.chain.vertices).concat([p]);
+                if (end.chain == start.chain) {
+                    if (end.i < start.i) {
+                        end.i += start.chain.vertices.length-start.i;
+                    } else {
+                        end.i -= start.i;
+                    }
+                }
+            } else {
+                */
+                split_chain(chain.vertex_end(), start.chain, start.i); // discard last part
+            // }
+            chains[chains.length-1] = split_chain(chain.vertex_start(), end.chain, end.i);
+            chains.forEach(c => new_region.chains_negative.push(c));
+            new_region.chains_positive.push(chain);
+            this.regions.push(new_region);
+
         }
-        split_chain(chain.vertex_end(), start.chain, start.i); // discard last part
-        chains[chains.length-1] = split_chain(chain.vertex_start(), end.chain, end.i);
-        chains.forEach(c => new_region.chains_negative.push(c));
-        new_region.chains_positive.push(chain);
-        this.regions.push(new_region);
 
         this.clear_cache();
         new_region.area_target = new_region.area();

@@ -2,15 +2,19 @@ function $elem(s) {return $(`<${s}></${s}>`);}
 
 class Main {
     constructor() {
+        this.custom = document.mycustom != undefined;
+
         const canvas = $("#canvas")[0];
         canvas.style.touchAction = "none";
         this.$div = $("#div");
 
         this.myctx = new MyCtx(0, 0, 10);
         this.myctx.reset_canvas(canvas);
-        this.cluster = new_bouquet(3);
+//        this.cluster = new_bouquet(2);
+        this.cluster = new Cluster();
+        this.draw_end_points = false;
         this.draw_vertices = false;
-        this.draw_forces = true;
+        this.draw_forces = false;
         this.draw_unit_square = false;
         this.loop = true;
         this.n_regions = -1;
@@ -87,6 +91,13 @@ class Main {
                 ctx.circle(v.x, v.y, 2/ctx.scale);
                 ctx.stroke();
             });
+        } else if (this.draw_end_points) {
+            ctx.setStrokeColor("red");
+            this.cluster.triple_points.forEach(function(v){
+                ctx.beginPath();
+                ctx.circle(v.x, v.y, 2/ctx.scale);
+                ctx.stroke();
+            });
         }
         
         if (this.draw_chain != null) {
@@ -97,6 +108,7 @@ class Main {
 
     populate_html() {
         this.$div.empty();
+        if (this.custom) this.$div.hide();
         let $button = $elem("button");
         const set_button_text = () => {
             $button.text(this.loop?"stop":"start");
