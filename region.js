@@ -1,7 +1,6 @@
 class Region {
     constructor(area_target=1.0) {
-        this.chains_positive = [];
-        this.chains_negative = [];
+        this.signed_chains = [] // [sign, chain]
 
         this.area_target = area_target;
         
@@ -15,12 +14,9 @@ class Region {
     area() {
         if (this._area == null) {
             var area = 0.0;
-            this.chains_positive.forEach(function(chain) {
-                area += chain.area();
-            });
-            this.chains_negative.forEach(function(chain) {
-                area -= chain.area();
-            });
+            this.signed_chains.forEach( ([sign, chain]) => {
+                area += sign * chain.area()
+            })
             this._area = area;
         }
         return this._area;
@@ -29,12 +25,9 @@ class Region {
     perimeter() {
         if (this._perimeter == null) {
             var perimeter = 0.0;
-            this.chains_positive.forEach(function(chain) {
+            this.signed_chains.forEach(([sign, chain]) => {
                 perimeter += chain.length();
-            });
-            this.chains_negative.forEach(function(chain) {
-                perimeter += chain.length();
-            });
+            })
             this._perimeter = perimeter;
         }
         return this._perimeter;
@@ -44,13 +37,9 @@ class Region {
         while (true) {
             var count = 0;
             
-            this.chains_positive.forEach(function(chain) {
-                count += chain.intersection_count(p);
-            });
-
-            this.chains_negative.forEach(function(chain) {
-                count += chain.intersection_count(p);
-            });
+            this.signed_chains.forEach( ([sign, chain]) => {
+                count += chain.intersection_count(p)
+            })
 
             if (count >= 0) return count % 2 ? true : false;
 

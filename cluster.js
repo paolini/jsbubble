@@ -68,14 +68,14 @@ class Cluster {
 
         this.regions.forEach(function(region) {
             region.cluster = self;
-            region.chains_positive.forEach(function(chain) {
-                add_chain(chain);   
-                chain.region_left = region;
-            });
-            region.chains_negative.forEach(function(chain) {
-                add_chain(chain);          
-                chain.region_right = region;
-            });
+            region.signed_chains.forEach(([sign, chain]) => {
+                add_chain(chain)
+                if (sign > 0) {
+                    chain.region_left = region
+                } else {
+                    chain.region_right = region
+                }
+            })
         });
     }
 
@@ -215,7 +215,7 @@ class Cluster {
                 chain.vertices.reverse();
             }
             chain.vertices.push(chain.vertices[0]); // closed curve
-            new_region.chains_positive.push(chain);
+            new_region.signed_chains.push([1, chain])
             this.regions.push(new_region);
         } else {
             const start = find_closest(chain.vertex_end()); // sic: start <- end
@@ -258,11 +258,11 @@ class Cluster {
                 chain.vertices.push(p);
                 new_chain.vertices.splice(0, 0, p);
                 if (chain.region_left != null) {
-                    chain.region_left.chains_positive.push(new_chain);
+                    chain.region_left.signed_chains.push([1, new_chain])
                     new_chain.region_left = chain.region_left;
                 }
                 if (chain.region_right != null) {
-                    chain.region_right.chains_negative.push(new_chain);
+                    chain.region_right.signed_chains.push([-1, new_chain]);
                     new_chain.region_right = chain.region_right;
                 }            
                 return new_chain;
@@ -299,8 +299,8 @@ class Cluster {
                 split_chain(chain.vertex_end(), start.chain, start.i); // discard last part
             // }
             chains[chains.length-1] = split_chain(chain.vertex_start(), end.chain, end.i);
-            chains.forEach(c => new_region.chains_negative.push(c));
-            new_region.chains_positive.push(chain);
+            chains.forEach(c => new_region.signed_chains.push([-1, c]));
+            new_region.signed_chains.push([1, chain])
             this.regions.push(new_region);
 
         }
@@ -336,9 +336,9 @@ function new_bouquet(n) {
     }
     for(var i=0; i<n; ++i) {
         var region = new Region();
-        region.chains_positive.push(chains[i]);
-        region.chains_positive.push(chain(vertices[i], vertices[(i+1)%n], 25));
-        region.chains_negative.push(chains[(i+1)%n]);
+        region.signed_chains.push([1, chains[i]])
+        region.signed_chains.push([1, chain(vertices[i], vertices[(i+1)%n], 25)]);
+        region.signed_chains.push([-1, chains[(i+1)%n]]);
         cluster.regions.push(region);
     }
     cluster.clear_cache();
