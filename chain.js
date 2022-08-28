@@ -1,6 +1,9 @@
 class Chain {
-    constructor() {
-        this.vertices = [];
+    constructor(vertices) {
+        console.assert(vertices.length >= 2)
+        this.vertices = vertices
+        this.vertex_start().signed_chains = [1, this]
+        this.vertex_end().signed_chains = [-1, this]
         this.signed_regions = []
         this.invalidate()
     }
@@ -88,6 +91,10 @@ class Chain {
 
     split(i) {
         // split the chain at vertex i
+        //
+        // start >--- this ---> end
+        // start >--- chain1 ---> node >--- chain2 ---> end  
+
         let chain1 = new Chain()
 
         let start = this.vertices[0]
@@ -117,5 +124,6 @@ class Chain {
                 cluster.nodes.push(node)
             }
         })
+        return { chain1, node, chain2 }
     }
 }

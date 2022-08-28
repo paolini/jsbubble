@@ -273,10 +273,10 @@ class Cluster {
             // we are ready to make the surgery!
 
             function split_chain(p, chain, i) {
-                var new_chain = new Chain();
-                new_chain.vertices = chain.vertices.splice(i);
-                chain.vertices.push(p);
-                new_chain.vertices.splice(0, 0, p);
+                var vertices = chain.vertices.splice(i)
+                chain.vertices.push(p)
+                vertices.splice(0, 0, p);
+                var new_chain = new Chain(vertices)
                 chain.signed_regions.forEach(([sign, region])=> {
                     region.signed_chains.push([sign, new_chain])
                     new_chain.signed_regions.push([sign, region])

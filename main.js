@@ -20,25 +20,26 @@ class Main {
         this.n_regions = -1;
         this.dt = 0.2;
 
-        this.draw_chain = null;
+        this.new_vertices = null;
 
         function on_mouse_move(evt) {
             const xy = this.myctx.getCursorPosition(evt);
             if (evt.buttons == 1) {
-                if (this.draw_chain == null) {
-                    this.draw_chain = new Chain();
+                if (this.new_vertices === null) {
+                    this.new_vertices = [];
                 }
                 var p = new Vec(xy[0], xy[1]);
-                if (this.draw_chain.vertices.length == 0 || vec_distance(this.draw_chain.vertex_end(), p) > this.cluster.ds) {
-                    this.draw_chain.vertices.push(new Vertex(xy[0], xy[1]));
+                function last(lst) {return lst[lst.length-1]}
+                if (this.new_vertices.length == 0 || vec_distance(last(this.new_vertices), p) > this.cluster.ds) {
+                    this.new_vertices.push(new Vertex(xy[0], xy[1]));
                 }
             }
         }
         function on_mouse_up(evt) {
-            if (this.draw_chain) {
-                this.cluster.add_chain(this.draw_chain);
+            if (this.new_vertices && this.new_vertices.length >= 2) {
+                this.cluster.add_chain(new Chain(this.new_vertices));
             }
-            this.draw_chain = null;
+            this.new_vertices = null;
         }
 
         canvas.addEventListener("pointermove", on_mouse_move.bind(this), false);
@@ -63,17 +64,18 @@ class Main {
             ctx.stroke();
         }
 
-        function draw_chain(chain) {
+        function draw_curve(points) {
+            if (points.length<1) return
             ctx.beginPath();
-            ctx.moveTo(chain.vertices[0].x, chain.vertices[0].y);
-            for (var i=1; i<chain.vertices.length; ++i) {
-                ctx.lineTo(chain.vertices[i].x, chain.vertices[i].y);
+            ctx.moveTo(points[0].x, points[0].y);
+            for (var i=1; i<points.length; ++i) {
+                ctx.lineTo(points[i].x, points[i].y);
             }
             ctx.stroke();
         }
 
         ctx.setStrokeColor(this.custom?"orange":"blue");
-        this.cluster.chains.forEach(draw_chain);
+        this.cluster.chains.forEach(chain => draw_curve(chain.vertices));
 
         if (this.draw_forces) {
             ctx.setStrokeColor("green");
@@ -101,9 +103,9 @@ class Main {
             });
         }
         
-        if (this.draw_chain != null) {
+        if (this.new_vertices !== null) {
             ctx.setStrokeColor(this.custom?"orange":"black");
-            draw_chain(this.draw_chain);
+            draw_curve(this.new_vertices);
         }
     }
 

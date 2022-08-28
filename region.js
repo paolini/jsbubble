@@ -64,27 +64,63 @@ class Region {
         }
     }
 
-    split_by(chain) {
+    split(chain) {
         // create new region by splitting this with chain
+        //
+        //           end
+        //  ,----<---------<---.
+        //  |                  |
+        //  |      this        |
+        //  |                  |
+        //  `--->---------->---'
+        //          start
+        //
+        //           end
+        //  ,----<----,----<-----.
+        //  |         |          |
+        //  |         ^chain     |
+        //  |   new   |   this   |
+        //  `--->-----'---->-----'
+        //          start
 
         function find_closest(chains, p) {
-            var best_d = Infinity;
-            var best_chain = null;
-            var best_i = null;
+            let best = {
+                'd': Infinity,
+                'chain': null,
+                'i': null,
+                'vertex': null
+            }
             chains.forEach(chain => {
                 for(i=1; i<chain.vertices.length-1; ++i) {
-                    const d = vec_distance(chain.vertices[i], p);
-                    if (d < best_d) {
-                        best_d = d;
-                        best_chain = chain;
-                        best_i = i;
+                    const vertex = chain.vertices[i]
+                    const d = vec_distance(vertex, p);
+                    if (d < best.d) {
+                        best.d = d;
+                        best.chain = chain;
+                        best.i = i;
+                        best.vertex = vertex
                     }
                 }
             });
-            return {'d': best_d, 'chain': best_chain, 'i': best_i};
+            return best;
         }
 
+        let chains = this.signed_chains.map(([sign, chain]) => chain)
+        let start = find_closest(chains, chain.vertex_start())
+        let end = find_closest(chains, chain.vertex_end())
+        console.assert(start.vertex !== end.vertex)
 
+        start = start.chain.split(start.i)
 
+        // repeat search because chains have changed!
+        end = find_closest(chains, chain.vertex_end())
+        console.assert(start.vertex !== end.vertex)
+
+        end = end.chain.split(end.i)
+
+        chain.vertices.unshift(start.node)
+        start.node.signed_chains.push([1,chain])
+        chain.vertices.push(end.node)
+        end.node.signed_chains.push([-1,chain])
     }
 }
