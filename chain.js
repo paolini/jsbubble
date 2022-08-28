@@ -1,10 +1,33 @@
 class Chain {
     constructor() {
         this.vertices = [];
-        // computed:
         this.signed_regions = []
-        this._length = null;
-        this._area = null;
+        this.invalidate()
+    }
+
+    invalidate() {
+        this._length = null
+        this._area = null
+    }
+
+    check_topology() {
+        function check_vertex(v, sign) {
+            let count = 0
+            v.signed_chains.forEach(([sign_, chain]) => {
+                if (chain === this) {
+                    console.assert(sign_ === sign)
+                    count ++
+                }
+            })
+            console.assert(count === 0)
+        }
+        
+        check_vertex(this.vertex_start(), 1)
+        check_vertex(this.vertex_end(), -1)
+
+        for (let i=1; i< this.vertices.length - 1; ++i) {
+            console.assert(this.vertices[i].signed_chains.length === 0)
+        }
     }
 
     area() {
@@ -61,5 +84,38 @@ class Chain {
             if (sign < 0) return true
         })
         return false
+    }
+
+    split(i) {
+        // split the chain at vertex i
+        let chain1 = new Chain()
+
+        let start = this.vertices[0]
+        let node = this.vertices[i]
+        node.signed_chains = [[-1,chain1],[1,chain2]]
+        start.signed_chains = start.signed_chains.map(([sign, chain]) => {
+            if (sign<0) return [sign, chain]
+            else return [sign, chain1]
+        })
+
+        let chain2 = this
+        chain1.invalidate()
+        chain2.invalidate()
+        chain1.vertices = chain2.vertices.splice(0,i)
+        chain1.vertices.push(node)
+
+        chain1.signed_regions = []
+        let clusters = [] // will be a singleton
+        chain2.signed_regions.forEach(([sign, region]) => {
+            chain1.signed_regions.push([sign, region])
+            region.signed_chains.push([sign, chain1])
+            const cluster = region.cluster
+            if (cluster && !clusters.includes(cluster)) {
+                // actually there is a single cluster
+                clusters.push(cluster)
+                cluster.chains.push(chain1)
+                cluster.nodes.push(node)
+            }
+        })
     }
 }

@@ -10,16 +10,21 @@ class Cluster {
         this._perimeter = null;
     }
 
-    clear_cache() {
-        this._perimeter = null;
-        this.regions.forEach(function(region){
-            region._area = null;
-            region._perimeter = null;
-        });
-        this.chains.forEach(function(chain) {
-            chain._length = null;
-            chain._area = null;
-        });
+    invalidate() {
+        this._perimeter = null
+    }
+
+    invalidate_deep() {
+        this.invalidate()
+        this.regions.forEach(region => region.invalidate())
+        this.chains.forEach(chain => chain.invalidate())
+    }
+
+    check_topology() {
+        this.regions.forEach(region => {
+            console.assert(region.cluster === this)
+            region.check_topology()
+        })
     }
 
     perimeter() {
@@ -51,31 +56,33 @@ class Cluster {
     }
 
     compute_topology() {
-        var self = this;
 
-        function add_node(vertex) {
-            if (!self.nodes.includes(vertex)) {
-                self.nodes.push(vertex);
+        let add_node = (sign, chain, vertex) => {
+            if (!this.nodes.includes(vertex)) {
+                this.nodes.push(vertex);
+                vertex.signed_chains = []
             }
+            vertex.signed_chains.push([sign, chain])
         }
 
-        function add_chain(chain) {
-            if (!self.chains.includes(chain)) {
-                self.chains.push(chain);
-            }
-            add_node(chain.vertex_start());
-            add_node(chain.vertex_end());
-        }
-
-        this.chains.forEach(chain => {chain.signed_regions=[]})
-
-        this.regions.forEach(function(region) {
-            region.cluster = self;
+        this.nodes = []
+        this.chains = []
+        this.regions.forEach(region => {
+            region.cluster = this;
             region.signed_chains.forEach(([sign, chain]) => {
-                add_chain(chain)
+                if (!this.chains.includes(chain)) {
+                    this.chains.push(chain);
+                    chain.signed_regions = []
+                    add_node(1, chain, chain.vertex_start());
+                    add_node(-1, chain, chain.vertex_end());
+                }
                 chain.signed_regions.push([sign, region])
             })
-        });
+        })
+
+        console.log(`cluster has ${this.regions.length} regions, ${this.chains.length} arcs, ${this.nodes.length} nodes`)
+
+        this.check_topology()
     }
 
     region_containing(p) {
@@ -160,7 +167,7 @@ class Cluster {
         // move vertices along forces
         this.each_vertex(vertex => vertex.evolve(dt));
 
-        this.clear_cache();
+        this.invalidate_deep();
 
         // center
         var v = new Vec(Infinity, Infinity);
@@ -191,11 +198,12 @@ class Cluster {
             console.log("too few vertices in chain");
             return;
         }
-        function find_closest(p) {
+
+        function find_closest(chains, p) {
             var best_d = Infinity;
             var best_chain = null;
             var best_i = null;
-            cluster.chains.forEach(chain => {
+            chains.forEach(chain => {
                 for(i=1; i<chain.vertices.length-1; ++i) {
                     const d = vec_distance(chain.vertices[i], p);
                     if (d < best_d) {
@@ -208,6 +216,17 @@ class Cluster {
             return {'d': best_d, 'chain': best_chain, 'i': best_i};
         }
 
+        let fake_external_region = () => {
+            let region = new Region()
+            region.signed_chains = (this.chains
+                .filter(chain => (chain.signed_regions.length == 1))
+                .map(chain => [-chain.signed_regions[0][0],chain]))
+        }
+
+        let split_region = (region, chain) => {
+
+        }
+
         var new_region = null;
         if (this.regions.length == 0) {
             new_region = new Region();
@@ -218,8 +237,8 @@ class Cluster {
             new_region.signed_chains.push([1, chain])
             this.regions.push(new_region);
         } else {
-            const start = find_closest(chain.vertex_end()); // sic: start <- end
-            const end = find_closest(chain.vertex_start()); // sic: end <- start
+            const start = find_closest(this.chains, chain.vertex_end()); // sic: start <- end
+            const end = find_closest(this.chains, chain.vertex_start()); // sic: end <- start
 
             if (start.chain.has_negative_region()) {
                 console.log("cannot find starting point external edge");
@@ -302,7 +321,7 @@ class Cluster {
 
         }
 
-        this.clear_cache();
+        this.invalidate_deep();
         new_region.area_target = new_region.area();
     
         this.compute_topology();
@@ -338,7 +357,7 @@ function new_bouquet(n) {
         region.signed_chains.push([-1, chains[(i+1)%n]]);
         cluster.regions.push(region);
     }
-    cluster.clear_cache();
+    cluster.invalidate_deep();
     cluster.compute_topology();
     cluster.compute_forces();
     return cluster;
