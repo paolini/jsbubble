@@ -19,7 +19,7 @@ class Main {
         this.loop = true;
         this.n_regions = -1;
         this.dt = 0.2;
-
+        this.new_chain = null
         this.new_vertices = null;
 
         function on_mouse_move(evt) {
@@ -37,7 +37,9 @@ class Main {
         }
         function on_mouse_up(evt) {
             if (this.new_vertices && this.new_vertices.length >= 2) {
-                this.cluster.add_chain(new Chain(this.new_vertices));
+                let chain = new Chain(this.new_vertices)
+                this.cluster.add_chain(chain)
+                this.cluster.graft_chain(chain);
             }
             this.new_vertices = null;
         }
@@ -186,7 +188,7 @@ class Main {
 
 }
 
-let main = null;
+let main = null
 
 $(() => {
     console.log("jsbubble");

@@ -2,8 +2,8 @@ class Chain {
     constructor(vertices) {
         console.assert(vertices.length >= 2)
         this.vertices = vertices
-        this.vertex_start().signed_chains = [1, this]
-        this.vertex_end().signed_chains = [-1, this]
+        this.vertex_start().signed_chains.push([1, this])
+        this.vertex_end().signed_chains.push([-1, this])
         this.signed_regions = []
         this.invalidate()
     }
@@ -57,9 +57,11 @@ class Chain {
         return this._length;
     }
 
-    vertex_start() {return this.vertices[0];}
+    vertex_start() { return this.vertices[0] }
 
-    vertex_end() {return this.vertices[this.vertices.length-1];}
+    vertex_end() { return this.vertices[this.vertices.length-1] }
+
+    node(sign) { return sign > 0 ? this.vertex_end() : this.vertex_start() }
 
     intersection_count(p) {
         // p: Vec
@@ -89,41 +91,34 @@ class Chain {
         return false
     }
 
-    split(i) {
+    split(i, cluster) {
         // split the chain at vertex i
         //
-        // start >--- this ---> end
-        // start >--- chain1 ---> node >--- chain2 ---> end  
-
-        let chain1 = new Chain()
+        //      start >--- this ---> end
+        //
+        // return { chain1, node, chain2 }
+        //
+        // start >--- chain1 ---> node >--- chain2=this ---> end  
 
         let start = this.vertices[0]
         let node = this.vertices[i]
-        node.signed_chains = [[-1,chain1],[1,chain2]]
-        start.signed_chains = start.signed_chains.map(([sign, chain]) => {
-            if (sign<0) return [sign, chain]
-            else return [sign, chain1]
-        })
-
+        cluster.nodes.push(node)
+        let vertices = this.vertices.splice(0,i) // cut first part
         let chain2 = this
+        start.signed_chains = start.signed_chains.filter(([sign, chain]) => !(chain === this && sign === 1))
+        node.signed_chains.push([1, this]) 
+        vertices.push(node)
+        let chain1 = new Chain(vertices)
+        cluster.chains.push(chain1)
+
         chain1.invalidate()
         chain2.invalidate()
-        chain1.vertices = chain2.vertices.splice(0,i)
-        chain1.vertices.push(node)
 
-        chain1.signed_regions = []
-        let clusters = [] // will be a singleton
         chain2.signed_regions.forEach(([sign, region]) => {
             chain1.signed_regions.push([sign, region])
             region.signed_chains.push([sign, chain1])
-            const cluster = region.cluster
-            if (cluster && !clusters.includes(cluster)) {
-                // actually there is a single cluster
-                clusters.push(cluster)
-                cluster.chains.push(chain1)
-                cluster.nodes.push(node)
-            }
         })
+
         return { chain1, node, chain2 }
     }
 }

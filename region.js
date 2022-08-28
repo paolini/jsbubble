@@ -1,10 +1,18 @@
+function path_area(signed_chains) {
+    let area = 0.0
+    signed_chains.forEach( ([sign, chain]) => {
+            area += sign * chain.area()
+    })
+    return area
+}
+
+
 class Region {
     constructor(area_target=1.0) {
         this.signed_chains = [] // [sign, chain]
 
         this.area_target = area_target;
         
-        // computed:
         this.pressure = 1.0;  // hint pressure
         this.cluster = null;
         this.invalidate()
@@ -28,12 +36,8 @@ class Region {
     }
 
     area() {
-        if (this._area == null) {
-            var area = 0.0;
-            this.signed_chains.forEach( ([sign, chain]) => {
-                area += sign * chain.area()
-            })
-            this._area = area;
+        if (this._area === null) {
+            this._area = path_area(this.signed_chains)
         }
         return this._area;
     }
@@ -65,62 +69,98 @@ class Region {
     }
 
     split(chain) {
+        //
         // create new region by splitting this with chain
+        // chain must be already be in the cluster
+        // and have end-points on vertices of this region
         //
         //           end
-        //  ,----<---------<---.
+        //  ,----<----.----<---.
         //  |                  |
-        //  |      this        |
+        //  |    this          |
         //  |                  |
-        //  `--->---------->---'
+        //  `--->-----.---->---'
         //          start
         //
         //           end
         //  ,----<----,----<-----.
         //  |         |          |
         //  |         ^chain     |
-        //  |   new   |   this   |
+        //  | region  | this     |
         //  `--->-----'---->-----'
         //          start
 
-        function find_closest(chains, p) {
-            let best = {
-                'd': Infinity,
-                'chain': null,
-                'i': null,
-                'vertex': null
-            }
-            chains.forEach(chain => {
-                for(i=1; i<chain.vertices.length-1; ++i) {
-                    const vertex = chain.vertices[i]
-                    const d = vec_distance(vertex, p);
-                    if (d < best.d) {
-                        best.d = d;
-                        best.chain = chain;
-                        best.i = i;
-                        best.vertex = vertex
-                    }
+        // for later use
+        let old_area = this.area()
+
+        // find cycle along region chains from start to end
+        // move chains of cycle from this to new region
+        let start = chain.vertex_end()
+        let end = chain.vertex_start()
+        let region = new Region()
+        region.cluster = this.cluster
+        this.cluster.regions.push(region)
+
+        for(let v=start; v !== end;) {
+            let r = null
+            this.signed_chains.some(([ sign, chain ], i) => {
+                if (chain.node(-sign) === v) {
+                    r = chain.node(sign) // next node
+
+                    // move chain to other region
+                    this.signed_chains.splice(i, 1) // remove from this
+                    region.signed_chains.push([ sign, chain ]) // add to new region
+
+                    // update topology
+                    chain.signed_regions = chain.signed_regions
+                        .map(([ s, r ]) => {
+                            if (r === this) {
+                                // assign chain to new region
+                                return [ s, region ]
+                            } else {
+                                return [ s, r ]
+                            }
+                        })    
+                    return true
                 }
-            });
-            return best;
+            })
+            console.assert(r!==null)
+            console.assert(r!==start)
+            v = r
         }
 
-        let chains = this.signed_chains.map(([sign, chain]) => chain)
-        let start = find_closest(chains, chain.vertex_start())
-        let end = find_closest(chains, chain.vertex_end())
-        console.assert(start.vertex !== end.vertex)
+        // insert chain to both regions
+        region.signed_chains.push([1, chain])
+        chain.signed_regions.push([1, region])
+        this.signed_chains.push([-1, chain])
+        chain.signed_regions.push([-1, this])
 
-        start = start.chain.split(start.i)
+        this.invalidate()
 
-        // repeat search because chains have changed!
-        end = find_closest(chains, chain.vertex_end())
-        console.assert(start.vertex !== end.vertex)
+        // subdivide target_area proportionally
+        let ratio = old_area / this.area_target
+        this.area_target = ratio * this.area()
+        region.area_target = ratio * region.area()
 
-        end = end.chain.split(end.i)
-
-        chain.vertices.unshift(start.node)
-        start.node.signed_chains.push([1,chain])
-        chain.vertices.push(end.node)
-        end.node.signed_chains.push([-1,chain])
+        return region
     }
+}
+
+function locate_path(signed_chains, start, end, sign) {
+    // return a signed_chains following the oriented chains
+    // from start to end 
+    let path = []
+    for(let v=start; v!== end;) {
+        let next = null
+        signed_chains.some(([s, chain]) => {
+            if (chain.node(-sign*s) === v) {
+                next = chain.node(sign*s)
+                path.push([s*sign, chain])
+                return true
+            }
+        })
+        if (next === null) throw new Error("locate_path failed")
+        v = next
+    }
+    return path
 }
