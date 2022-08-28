@@ -2,8 +2,7 @@ class Chain {
     constructor() {
         this.vertices = [];
         // computed:
-        this.region_left = null;
-        this.region_right = null;
+        this.signed_regions = []
         this._length = null;
         this._area = null;
     }
@@ -55,5 +54,12 @@ class Chain {
             if (y0 > p.y) count ++; // one intersection above!
         }
         return count;
+    }
+
+    has_negative_region() {
+        this.signed_regions.forEach(([sign, region]) => {
+            if (sign < 0) return true
+        })
+        return false
     }
 }

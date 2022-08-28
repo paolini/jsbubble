@@ -66,15 +66,13 @@ class Cluster {
             add_triple_point(chain.vertex_end());
         }
 
+        this.chains.forEach(chain => {chain.signed_regions=[]})
+
         this.regions.forEach(function(region) {
             region.cluster = self;
             region.signed_chains.forEach(([sign, chain]) => {
                 add_chain(chain)
-                if (sign > 0) {
-                    chain.region_left = region
-                } else {
-                    chain.region_right = region
-                }
+                chain.signed_regions.push([sign, region])
             })
         });
     }
@@ -117,8 +115,9 @@ class Cluster {
             if (true) {
                 // pressure
                 var p = 0.0;
-                if (chain.region_left != null) p += chain.region_left.pressure;
-                if (chain.region_right != null) p -= chain.region_right.pressure;
+                chain.signed_regions.forEach(([sign, region]) => {
+                    p += sign * region.pressure
+                })
                 const n = chain.vertices.length;
                 for (var i=1; i<n-1; ++i) {
                     const v = chain.vertices[i>0?i-1:i];
@@ -221,13 +220,14 @@ class Cluster {
             const start = find_closest(chain.vertex_end()); // sic: start <- end
             const end = find_closest(chain.vertex_start()); // sic: end <- start
 
-            if (start.chain.region_right != null) {
+            if (start.chain.has_negative_region()) {
                 console.log("cannot find starting point external edge");
-                return;
+                return;    
             }
 
-            if (end.chain.region_right != null) {
+            if (end.chain.has_negative_region()) {
                 console.log("cannot find ending point external edge");
+                return;    
             }
 
             var chains = [start.chain];
@@ -237,7 +237,7 @@ class Cluster {
                 var i;
                 for (i=0;i<this.chains.length; ++i) {
                     if (this.chains[i].vertex_end() == chains[chains.length-1].vertex_start()
-                        && this.chains[i].region_right == null) break;
+                        && !this.chains[i].has_negative_region()) break;
                 }
                 if (i == this.chains.length) {
                     console.log("unable to close path in external region");
@@ -257,14 +257,10 @@ class Cluster {
                 new_chain.vertices = chain.vertices.splice(i);
                 chain.vertices.push(p);
                 new_chain.vertices.splice(0, 0, p);
-                if (chain.region_left != null) {
-                    chain.region_left.signed_chains.push([1, new_chain])
-                    new_chain.region_left = chain.region_left;
-                }
-                if (chain.region_right != null) {
-                    chain.region_right.signed_chains.push([-1, new_chain]);
-                    new_chain.region_right = chain.region_right;
-                }            
+                chain.signed_regions.forEach(([sign, region])=> {
+                    region.signed_chains.push([sign, new_chain])
+                    new_chain.signed_regions.push([sign, region])
+                })
                 return new_chain;
             }
             
