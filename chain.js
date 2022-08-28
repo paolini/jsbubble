@@ -1,11 +1,36 @@
 class Chain {
-    constructor() {
-        this.vertices = [];
-        // computed:
-        this.region_left = null;
-        this.region_right = null;
-        this._length = null;
-        this._area = null;
+    constructor(vertices) {
+        console.assert(vertices.length >= 2)
+        this.vertices = vertices
+        this.vertex_start().signed_chains.push([1, this])
+        this.vertex_end().signed_chains.push([-1, this])
+        this.signed_regions = []
+        this.invalidate()
+    }
+
+    invalidate() {
+        this._length = null
+        this._area = null
+    }
+
+    check_topology() {
+        function check_vertex(v, sign) {
+            let count = 0
+            v.signed_chains.forEach(([sign_, chain]) => {
+                if (chain === this) {
+                    console.assert(sign_ === sign)
+                    count ++
+                }
+            })
+            console.assert(count === 0)
+        }
+        
+        check_vertex(this.vertex_start(), 1)
+        check_vertex(this.vertex_end(), -1)
+
+        for (let i=1; i< this.vertices.length - 1; ++i) {
+            console.assert(this.vertices[i].signed_chains.length === 0)
+        }
     }
 
     area() {
@@ -32,9 +57,11 @@ class Chain {
         return this._length;
     }
 
-    vertex_start() {return this.vertices[0];}
+    vertex_start() { return this.vertices[0] }
 
-    vertex_end() {return this.vertices[this.vertices.length-1];}
+    vertex_end() { return this.vertices[this.vertices.length-1] }
+
+    node(sign) { return sign > 0 ? this.vertex_end() : this.vertex_start() }
 
     intersection_count(p) {
         // p: Vec
@@ -55,5 +82,43 @@ class Chain {
             if (y0 > p.y) count ++; // one intersection above!
         }
         return count;
+    }
+
+    has_negative_region() {
+        this.signed_regions.forEach(([sign, region]) => {
+            if (sign < 0) return true
+        })
+        return false
+    }
+
+    split(i, cluster) {
+        // split the chain at vertex i
+        //
+        //      start >--- this ---> end
+        //
+        // return { chain1, node, chain2 }
+        //
+        // start >--- chain1 ---> node >--- chain2=this ---> end  
+
+        let start = this.vertices[0]
+        let node = this.vertices[i]
+        cluster.nodes.push(node)
+        let vertices = this.vertices.splice(0,i) // cut first part
+        let chain2 = this
+        start.signed_chains = start.signed_chains.filter(([sign, chain]) => !(chain === this && sign === 1))
+        node.signed_chains.push([1, this]) 
+        vertices.push(node)
+        let chain1 = new Chain(vertices)
+        cluster.chains.push(chain1)
+
+        chain1.invalidate()
+        chain2.invalidate()
+
+        chain2.signed_regions.forEach(([sign, region]) => {
+            chain1.signed_regions.push([sign, region])
+            region.signed_chains.push([sign, chain1])
+        })
+
+        return { chain1, node, chain2 }
     }
 }
