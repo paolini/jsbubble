@@ -12,7 +12,7 @@ class Main {
         this.myctx.reset_canvas(canvas);
 //        this.cluster = new_bouquet(2);
         this.cluster = new Cluster();
-        this.draw_end_points = false;
+        this.draw_nodes = true;
         this.draw_vertices = false;
         this.draw_forces = false;
         this.draw_unit_square = false;
@@ -92,9 +92,9 @@ class Main {
                 ctx.circle(v.x, v.y, 2/ctx.scale);
                 ctx.stroke();
             });
-        } else if (this.draw_end_points) {
+        } else if (this.draw_nodes) {
             ctx.setStrokeColor("red");
-            this.cluster.triple_points.forEach(function(v){
+            this.cluster.nodes.forEach(function(v){
                 ctx.beginPath();
                 ctx.circle(v.x, v.y, 2/ctx.scale);
                 ctx.stroke();

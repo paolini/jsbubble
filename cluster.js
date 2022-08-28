@@ -6,7 +6,7 @@ class Cluster {
 
         // computed:
         this.chains = [];
-        this.triple_points = [];
+        this.nodes = [];
         this._perimeter = null;
     }
 
@@ -45,16 +45,17 @@ class Cluster {
                 f(chain.vertices[i]);
             }
         });
-        this.triple_points.forEach(function(vertex) {
+        this.nodes.forEach(function(vertex) {
             f(vertex);
         });
     }
 
     compute_topology() {
         var self = this;
-        function add_triple_point(vertex) {
-            if (!self.triple_points.includes(vertex)) {
-                self.triple_points.push(vertex);
+
+        function add_node(vertex) {
+            if (!self.nodes.includes(vertex)) {
+                self.nodes.push(vertex);
             }
         }
 
@@ -62,8 +63,8 @@ class Cluster {
             if (!self.chains.includes(chain)) {
                 self.chains.push(chain);
             }
-            add_triple_point(chain.vertex_start());
-            add_triple_point(chain.vertex_end());
+            add_node(chain.vertex_start());
+            add_node(chain.vertex_end());
         }
 
         this.chains.forEach(chain => {chain.signed_regions=[]})
