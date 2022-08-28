@@ -101,33 +101,23 @@ class Region {
         region.cluster = this.cluster
         this.cluster.regions.push(region)
 
-        for(let v=start; v !== end;) {
-            let r = null
-            this.signed_chains.some(([ sign, chain ], i) => {
-                if (chain.node(-sign) === v) {
-                    r = chain.node(sign) // next node
+        let path = locate_path(this.signed_chains, start, end, 1)
 
-                    // move chain to other region
-                    this.signed_chains.splice(i, 1) // remove from this
-                    region.signed_chains.push([ sign, chain ]) // add to new region
+        path.forEach(([sign, chain]) => {
+            this.signed_chains = this.signed_chains.filter(
+                ([s, c]) => !(s===sign && c === chain))
+            region.signed_chains.push([sign, chain])
 
-                    // update topology
-                    chain.signed_regions = chain.signed_regions
-                        .map(([ s, r ]) => {
-                            if (r === this) {
-                                // assign chain to new region
-                                return [ s, region ]
-                            } else {
-                                return [ s, r ]
-                            }
-                        })    
-                    return true
+            chain.signed_regions = chain.signed_regions
+            .map(([ s, r ]) => {
+                if (r === this) {
+                    // assign chain to new region
+                    return [ s, region ]
+                } else {
+                    return [ s, r ]
                 }
-            })
-            console.assert(r!==null)
-            console.assert(r!==start)
-            v = r
-        }
+            })    
+        })
 
         // insert chain to both regions
         region.signed_chains.push([1, chain])
