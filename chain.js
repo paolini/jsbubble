@@ -110,17 +110,16 @@ class Chain {
             // this is a closed detached loop. Instead of splitting 
             // rotate node to be the single vertex
 
-            let chain1 = this
             vertices.push(node) // duplicate node
             this.vertices.pop() // remove one copy of old start
             this.vertices.push(...vertices)
             start.signed_chains = []
             node.signed_chains = [[1, this], [-1, this]]
             array_remove(cluster.nodes, start)
-            return { chain1, node, chain2 }
+            return node
         }
 
-        start.signed_chains = start.signed_chains.filter(([sign, chain]) => !(chain === this && sign === 1))
+        signed_elements_remove(start.signed_chains, 1, this)
         node.signed_chains.push([1, this]) 
         vertices.push(node)
         let chain1 = new Chain(vertices)
@@ -134,6 +133,6 @@ class Chain {
             region.signed_chains.push([sign, chain1])
         })
 
-        return { chain1, node, chain2 }
+        return node
     }
 }

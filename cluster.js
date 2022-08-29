@@ -59,36 +59,6 @@ class Cluster {
         });
     }
 
-    compute_topology() {
-
-        let add_node = (sign, chain, vertex) => {
-            if (!this.nodes.includes(vertex)) {
-                this.nodes.push(vertex);
-                vertex.signed_chains = []
-            }
-            vertex.signed_chains.push([sign, chain])
-        }
-
-        this.nodes = []
-        this.chains = []
-        this.regions.forEach(region => {
-            region.cluster = this;
-            region.signed_chains.forEach(([sign, chain]) => {
-                if (!this.chains.includes(chain)) {
-                    this.chains.push(chain);
-                    chain.signed_regions = []
-                    add_node(1, chain, chain.vertex_start());
-                    add_node(-1, chain, chain.vertex_end());
-                }
-                chain.signed_regions.push([sign, region])
-            })
-        })
-
-        console.log(`cluster has ${this.regions.length} regions, ${this.chains.length} arcs, ${this.nodes.length} nodes`)
-
-        this.check_topology()
-    }
-
     region_containing(p) {
         this.regions.forEach(function(region) {
             if (region.is_inside(p)) return region;
@@ -217,7 +187,7 @@ class Cluster {
             if (chain.vertices[last] === vertex2) chain.vertices[last] = vertex1
             chain.invalidate()
         }
-        this.nodes = this.nodes.filter( v => v!== vertex2)
+        array_remove(this.nodes, vertex2)
     }
 
 
@@ -250,9 +220,9 @@ class Cluster {
 
         // utility function
         function find_closest(chains, p) {
-            var dist = Infinity;
-            var chain = null;
-            var idx = null
+            let dist = Infinity
+            let chain = null
+            let idx = null
 
             chains.forEach(chain_ => {
                 for(let i=1; i<chain_.vertices.length-1; ++i) {
@@ -274,17 +244,27 @@ class Cluster {
             // 2. find the closest vertices to chain end-points
             let chains = this.chains.filter(chain => chain.signed_regions.length>0)
             let start = find_closest(chains, chain.vertex_start())
+
+            if (false && vec_distance(chain.vertex_start(),chain.vertex_end()) < start.dist) {
+                // close chain instead of merging
+                this.pinch_vertices(chain.vertex_start(), chain.vertex_end())
+                let region = new Region()
+                this.regions.push(region)
+                region.cluster = this
+                let sign = chain.area() > 0 ? 1 : -1
+                region.signed_chains.push([sign, chain])
+                chain.signed_regions.push([sign,region])
+                region.area_target = region.area()
+                return
+            }
+
             // start = { dist, chain, idx }
             start = start.chain.split(start.idx, this)
-            // start = { chain1, node, chain2 }
-            start = start.node
             this.pinch_vertices(start, chain.vertex_start())
 
             let end = find_closest(chains, chain.vertex_end())
             // end = { dist, chain, idx }
             end = end.chain.split(end.idx, this)
-            // end = { chain1, node, chain2 }
-            end = end.node
             this.pinch_vertices(end, chain.vertex_end())
 
             // 3. find the external region
@@ -293,25 +273,32 @@ class Cluster {
                 .map(chain => ([ -chain.signed_regions[0][0], chain ]))
             let path1 = locate_path(signed_chains, end, start, 1)
             let path2 = locate_path(signed_chains, end, start, -1)
-            let area1 = path_area(path1)
-            let area2 = path_area(path2) 
-            let area = chain.area()
-            if (Math.abs(area1+area) > Math.abs(area2+area)) {
-                // chose path2
+            if ( path1 !== null && path2 !== null) {
+                let area = chain.area()
+                let area1 = path_area(path1)
+                let area2 = path_area(path2) 
+                if (Math.abs(area1+area) > Math.abs(area2+area)) {
+                    // chose path2
+                    path1 = path2
+                }
+            } else if (path1 === null && path2 !== null) {
                 path1 = path2
-                area1 = area2
+            } else {
+                return
             }
 
             path1.push([1, chain])
             
-            if (area1+area<0) {
+            let area = path_area(path1)
+
+            if (area<0) {
                 // revert path
                 path1 = path1.map(([sign, chain]) => ([-sign, chain]))
             }
             let region = new Region()
             region.cluster = this
             this.regions.push(region)
-            region.area_target = Math.abs(area1+area)
+            region.area_target = Math.abs(area)
             region.signed_chains = path1
             path1.forEach(([sign, chain]) => {
                 chain.signed_regions.push([sign, region])
@@ -324,14 +311,12 @@ class Cluster {
             let start = find_closest(chains, chain.vertex_start())
             // start = { dist, chain, idx }
             start = start.chain.split(start.idx, this)
-            // start = { chain1, node, chain2 }
-            this.pinch_vertices(start.node, chain.vertex_start())
+            this.pinch_vertices(start, chain.vertex_start())
 
             let end = find_closest(chains, chain.vertex_end())
             // end = { dist, chain, idx }
             end = end.chain.split(end.idx, this)
-            // end = { chain1, node, chain2 }
-            this.pinch_vertices(end.node, chain.vertex_end())
+            this.pinch_vertices(end, chain.vertex_end())
 
             region.split(chain)
         }
