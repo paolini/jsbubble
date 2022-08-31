@@ -303,6 +303,7 @@ class Cluster {
             path1.forEach(([sign, chain]) => {
                 chain.signed_regions.push([sign, region])
             })
+            return region
         } else {
             // subdivide region
 
@@ -318,7 +319,7 @@ class Cluster {
             end = end.chain.split(end.idx, this)
             this.pinch_vertices(end, chain.vertex_end())
 
-            region.split(chain)
+            return region.split(chain)
         }
     }
 

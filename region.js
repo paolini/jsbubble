@@ -97,11 +97,13 @@ class Region {
         // move chains of cycle from this to new region
         let start = chain.vertex_end()
         let end = chain.vertex_start()
+        let path = locate_path(this.signed_chains, start, end, 1)
+        if (path === null) return null
+
         let region = new Region()
         region.cluster = this.cluster
         this.cluster.regions.push(region)
 
-        let path = locate_path(this.signed_chains, start, end, 1)
 
         path.forEach(([sign, chain]) => {
             signed_elements_remove(this.signed_chains, sign, chain)
