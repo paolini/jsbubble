@@ -63,6 +63,10 @@ function vec_div(v, t) {
     return new Vec(v.x / t, v.y / t);
 }
 
+function vec_angle(v) {
+    return Math.atan2(v.y, v.x)
+}
+
 function lines_intersect(p0, p1, q0, q1) {
     // return [t0, t1] such that 
     // p0 + t0 * (p1-p0) = q0 + t1 * (q1-q0)

@@ -8,6 +8,10 @@ class Chain {
         this.invalidate()
     }
 
+    toJSON() {
+        return `Chain(${this.id || ""})`
+    }
+
     invalidate() {
         this._length = null
         this._area = null
@@ -60,6 +64,19 @@ class Chain {
     vertex_start() { return this.vertices[0] }
 
     vertex_end() { return this.vertices[this.vertices.length-1] }
+
+    angle_start() { 
+        return vec_angle(vec_sub(this.vertices[1],this.vertices[0]))
+    }
+
+    angle_end() {
+        const n = this.vertices.length
+        return vec_angle(vec_sub(this.vertices[n-2],this.vertices[n-1]))
+    }
+
+    angle_node(sign) {
+        return sign>0 ? this.angle_start() : this.angle_end()
+    }
 
     node(sign) { return sign > 0 ? this.vertex_end() : this.vertex_start() }
 

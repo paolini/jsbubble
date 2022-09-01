@@ -16,6 +16,7 @@ class Main {
         this.draw_vertices = false;
         this.draw_forces = false;
         this.draw_unit_square = false;
+        this.draw_ids = true
         this.loop = true;
         this.n_regions = -1;
         this.dt = 0.2;
@@ -104,6 +105,18 @@ class Main {
                 ctx.stroke();
             });
         }
+
+        if (this.draw_ids) {
+            this.cluster.info()
+            ctx.setFillColor("black")
+            this.cluster.nodes.forEach(v => ctx.fillText(`${v.id}`, v.x, v.y))
+            ctx.setFillColor("blue")
+            this.cluster.chains.forEach(chain => {
+                const v = chain.vertices[Math.floor(chain.vertices.length/3)]
+                ctx.fillText(`${chain.id}`, v.x, v.y)
+            })
+        }
+
         
         if (this.new_vertices !== null) {
             ctx.setStrokeColor(this.custom?"orange":"black");

@@ -95,6 +95,14 @@ class MyCtx {
     }
 
     setStrokeColor(color) {
-        this.ctx.strokeStyle =color;
+        this.ctx.strokeStyle = color
+    }
+
+    setFillColor(color) {
+        this.ctx.fillStyle = color
+    }
+
+    fillText(text, x, y) {
+        this.ctx.fillText(text, this.ctx_x(x), this.ctx_y(y))
     }
 }

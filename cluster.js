@@ -14,6 +14,10 @@ class Cluster {
         this.id_region = 1
     }
 
+    toJSON() {
+        return this.info()
+    }
+
     invalidate() {
         this._perimeter = null
     }
@@ -128,9 +132,22 @@ class Cluster {
                 const v = chain.vertices[k]; // insert between this
                 const w = chain.vertices[k+1]; // and this
                 chain.vertices.splice(k+1, 0, new Vertex((v.x+w.x)/2, (v.y+w.y)/2));
-            } else if (n>1 && this.ds * (n-1) > chain.length()) {
-                const k = Math.floor(Math.random()*(n-1));
-                chain.vertices.splice(k+1, 1);
+            } else if (this.ds * (n-1) > chain.length()) {
+                if (n <= 5) {
+                    console.log("MERGE")
+                    console.log(this.info())
+                    dump({ n1: chain.vertex_start().signed_chains.length,
+                        n2: chain.vertex_end().signed_chains.length })
+                    let node = this.pinch_vertices(chain.vertex_start(), chain.vertex_end())
+                    dump({n: node.signed_chains.length })
+                    this.remove_chain(chain)
+                    dump({n: node.signed_chains.length })
+                    console.log(this.info())
+                    this.split_vertex(node)
+                } else {
+                    const k = Math.floor(Math.random()*(n-1));
+                    chain.vertices.splice(k+1, 1);
+                }
             }
         });
 
@@ -169,11 +186,61 @@ class Cluster {
         this.compute_forces();
     }
 
+    add_vertex(v) {
+        if (!this.nodes.includes(v)) this.nodes.push(v)
+        return v
+    }
+
     add_chain(chain) {
         // add chain to cluster as separate dangling component
-        this.chains.push(chain)
-        this.nodes.push(chain.vertex_start())
-        if (chain.vertex_end() !== chain.vertex_start()) this.nodes.push(chain.vertex_end())
+        this.add_vertex(chain.vertex_start())
+        this.add_vertex(chain.vertex_end())
+        if (!this.chains.includes(chain)) this.chains.push(chain)
+        return chain
+    }
+
+    add_region(region) {
+        if (region.cluster === null) {
+            region.cluster = this
+            this.regions.push(region)
+        }
+        if (region.cluster !== this) {
+            console.log("CANNOT ADD REGION")
+            return null
+        }
+        region.signed_chains.forEach(([sign, chain]) => this.add_chain(chain))
+        if (region.cluster === null) 
+        if (!this.regions.includes(region)) this.regions.push(region)
+        return region
+    }
+
+    remove_region(region) {
+        region.clear()
+        array_remove(this.regions, region)
+        region.cluster = null
+    }
+
+    remove_chain(chain) {
+        if (chain.vertex_start() === chain.vertex_end()) {
+            // regions are preserved
+            chain.signed_regions.forEach(([sign, region]) => {
+                signed_elements_remove(region.signed_chains, null, chain)
+            })
+            chain.signed_regions = []
+        } else {
+            // must destroy regions
+            chain.signed_regions.forEach(([sign, region]) => {
+                this.remove_region(region)
+            })
+        }
+        signed_elements_remove(chain.vertex_start().signed_chains, null, chain)
+        signed_elements_remove(chain.vertex_end().signed_chains, null, chain)
+        array_remove(this.chains, chain)
+    }
+
+    remove_vertex(v) {
+        v.signed_chains.forEach(([sign, chain]) => this.remove_chain(chain))
+        array_remove(this.nodes, v)
     }
 
     pinch_vertices(vertex1, vertex2) {
@@ -188,8 +255,74 @@ class Cluster {
             chain.invalidate()
         }
         array_remove(this.nodes, vertex2)
+        return vertex1
     }
 
+    split_vertex(vertex) {
+        // if there are at least 4 chains joining in the vertex
+        // find the smallest angle and add a small chain and a triple point
+
+        if (vertex.signed_chains.length < 4) return
+
+        let angle_signed_chains = vertex.signed_chains.map(([sign, chain]) => ([chain.angle_node(sign), [sign, chain]]))
+        dump({ angle_signed_chains })
+        angle_signed_chains.sort((a,b) => (a[0]-b[0]))
+        dump({ angle_signed_chains })
+        let best_a = Infinity
+        let best_i = null
+        const n = angle_signed_chains.length
+        for (let i=0; i<n; ++i) {
+            let a = Math.abs(angle_signed_chains[(i+1)%n][0] - angle_signed_chains[i][0])
+            if (a > Math.PI) a = 2*Math.PI - a
+            if (a < best_a) {
+                best_a = a
+                best_i = i
+            }
+        }
+        dump({best_a, best_i})
+
+        let [sign1, chain1] = angle_signed_chains[best_i][1]
+        let [sign2, chain2] = angle_signed_chains[(best_i+1)%n][1]
+
+        let v = this.add_vertex(new Vertex(vertex.x, vertex.y))
+        let chain = this.add_chain(new Chain([vertex, v]))
+
+        let m = new Vec(vertex.x, vertex.y)
+        let region_signs = new Map()
+
+        function replace_vertex(sign, chain) {
+            signed_elements_remove(vertex.signed_chains, sign, chain)
+            v.signed_chains.push([sign, chain])
+            if (sign > 0) {
+                chain.vertices[0] = v
+                m = vec_add(m, chain.vertices[1])
+            } else {
+                const n = chain.vertices.length - 1
+                chain.vertices[n] = v
+                m = vec_add(m, chain.vertices[n-1])
+            }
+            chain.signed_regions.forEach(([s, region]) => {
+                region.signed_chains.push([s, chain])
+                if (region_signs.has(region)) {
+                    region_signs.set(region, region_signs.get(region) + s*sign)
+                } else {
+                    region_signs.set(region, s*sign)
+                }    
+            })
+        }
+
+        replace_vertex(sign1, chain1)
+        replace_vertex(sign2, chain2)
+
+        // move v slightly towards the two chains
+        m = vec_div(m, 3)
+        v.x = m.x
+        v.y = m.y
+
+        region_signs.forEach((sign, region) => {
+            if (sign !== 0) chain.signed_regions.push([sign, region])
+        })
+    }
 
     graft_chain(chain) {
         // 0. in case this is the first chain 
@@ -271,8 +404,12 @@ class Cluster {
             let signed_chains = this.chains
                 .filter(chain => (chain.signed_regions.length === 1))
                 .map(chain => ([ -chain.signed_regions[0][0], chain ]))
+
+            // console.log(this.info())
             let path1 = locate_path(signed_chains, end, start, 1)
+            // dump({path1})
             let path2 = locate_path(signed_chains, end, start, -1)
+            // dump({path2})
             if ( path1 !== null && path2 !== null) {
                 let area = chain.area()
                 let area1 = path_area(path1)
@@ -284,6 +421,7 @@ class Cluster {
             } else if (path1 === null && path2 !== null) {
                 path1 = path2
             } else {
+                console.log("CANNOT LOCATE EXTERNAL PATH")
                 return
             }
 

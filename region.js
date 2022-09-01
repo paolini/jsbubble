@@ -68,6 +68,14 @@ class Region {
         }
     }
 
+    clear() {
+        // remove all chains
+        this.signed_chains.forEach(([sign,chain]) => {
+            signed_elements_remove(chain.signed_regions, null, this)
+        })
+        this.signed_chains = []
+    }
+
     split(chain) {
         //
         // create new region by splitting this with chain

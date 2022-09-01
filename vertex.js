@@ -10,5 +10,9 @@ class Vertex extends Vec {
         this.x += dt * this.force.x;
         this.y += dt * this.force.y;
     }
+
+    toJSON() {
+        return `Vertex(${this.id || ""})`
+    }
 }
 
