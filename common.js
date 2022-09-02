@@ -27,12 +27,13 @@ function signed_elements_remove(array, sign, element) {
     }
 }
 
-function locate_path(signed_chains, start, end, sign) {
+function locate_path(signed_chains, start, end, sign, remove) {
     // return a signed_chains following the oriented chains
     // from start to end 
     let path = []
     // dump({signed_chains, start, end, sign})
-    signed_chains = signed_chains.map(x => x) // clone
+    remove = remove || false
+    if (!remove) signed_chains = signed_chains.map(x => x) // clone
     for(let v=start; v!== end;) {
         let next = null
         let i

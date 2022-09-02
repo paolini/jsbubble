@@ -9,16 +9,21 @@ class Main {
             draw_vertices: false,
             draw_forces: false,
             draw_unit_square: false,
-            draw_ids: false,
             bg_color: "#eee",
             stroke_color: "blue",
             pen_color: "gray",
             force_color: "green",
             vertex_color: "black",
             node_color: "red",
+            draw_ids: false,
             vertex_id_color: "black",
             chain_id_color: "blue",
             fix_topology: true,
+            fill_regions: true,
+            region_colors: [
+                "#a008", "#0808", "#8808", "#0088", "#8088", "#0888",
+                "#ccc8", "#cdc8", "#acf8", "#ffe8", "#aaa8", "#8888", 
+                "#f008", "#0f08", "#ff08", "#00f8", "#f0f8", "#0ff8"],
             ...options
         }
 
@@ -68,6 +73,47 @@ class Main {
     plot() {
         const ctx = this.myctx
         ctx.background(this.options.bg_color)
+
+        if (this.options.fill_regions) {
+            const colors = this.options.region_colors
+            this.cluster.regions.forEach((region, i) => {
+                ctx.setFillColor(colors[i % colors.length])
+                let signed_chains = region.signed_chains.filter(() => true) // clone
+                while (signed_chains.length > 0) {
+                    let [sign, chain] = signed_chains.pop()
+                    let signed_path = locate_path(signed_chains, chain.node(sign), chain.node(-sign), 1, true)
+                    if (signed_path === null) {
+                        console.log("ERROR: PATH NOT FOUND!")
+                        break
+                    }
+                    signed_path.push([sign, chain])
+
+                    ctx.beginPath()
+                    let first = true
+                    signed_path.forEach(([sign, chain])=> {
+                        function draw(v) {
+                            if (first) {
+                                ctx.moveTo(v.x, v.y)
+                                first = false
+                            } else {
+                                ctx.lineTo(v.x, v.y)
+                            }
+                        }
+                        if (sign>0) {
+                            for (let i=0; i<chain.vertices.length-1; ++i) {
+                                draw(chain.vertices[i])
+                            }
+                        } else {
+                            for (let i=chain.vertices.length-1;i>0;i--){
+                                draw(chain.vertices[i])
+                            }
+                        }
+                    })
+                    ctx.closePath()
+                    ctx.fill()
+                }
+            })
+        }
 
         if (this.options.draw_unit_square) {
             ctx.setStrokeColor("blue");
@@ -170,6 +216,7 @@ class Main {
             .append($elem("th").attr('style', 'width: 5em').text(""))
             .append($elem("th").attr('style', 'width: 5em').text("perimeter")));
         this.cluster.regions.forEach((region,i) => {
+            const colors = this.options.region_colors
             let $input = $elem("input")
                 .attr("id", "target_" + i)
                 .attr("value", region.target_area)
@@ -177,8 +224,12 @@ class Main {
                 let target = parseFloat(event.target.value);
                 region.area_target = target; 
             });
+            const paint=(el, i)=>{
+                if (this.options.fill_regions) return el.css("background-color",colors[i % colors.length])
+                else return el
+            }
             $table.append($elem("tr")
-                .append($elem("td").text(i))
+                .append(paint($elem("td").text(i),i))
                 .append($elem("td").attr("id", "area_" + i))
                 .append($elem("td").append($input))
                 .append($elem("td").attr("id", "pressure_" + i))

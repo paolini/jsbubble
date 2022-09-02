@@ -71,6 +71,10 @@ class MyCtx {
         return this.ctx.stroke();
     }
 
+    fill() {
+        return this.ctx.fill()
+    }
+
     moveTo(x,y) {
         return this.ctx.moveTo(this.ctx_x(x), this.ctx_y(y));
     }
