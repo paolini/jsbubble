@@ -16,7 +16,7 @@ class Main {
         this.draw_vertices = false;
         this.draw_forces = false;
         this.draw_unit_square = false;
-        this.draw_ids = true
+        this.draw_ids = false
         this.loop = true;
         this.n_regions = -1;
         this.dt = 0.2;

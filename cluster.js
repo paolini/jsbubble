@@ -83,17 +83,18 @@ class Cluster {
         this.clear_forces();
 
         this.chains.forEach(chain => {
-            // var ds = chain.length() / (chain.vertices.length-1);
-            // curvature
-            
-            if (chain.signed_regions.length === 0) return
+            const ds = chain.length() / (chain.vertices.length-1)
+            const r = (this.ds*this.ds)/(ds*ds) 
 
+            if (chain.signed_regions.length === 0) return
+            
+            // curvature * ds^2
             for(var i=1; i<chain.vertices.length; ++i) {
                 const v = chain.vertices[i-1];
                 const w = chain.vertices[i];
 
-                const fx = (w.x-v.x);
-                const fy = (w.y-v.y);
+                const fx = (w.x-v.x)/r;
+                const fy = (w.y-v.y)/r;
 
                 v.force.x += fx;
                 v.force.y += fy;
@@ -101,39 +102,40 @@ class Cluster {
                 w.force.y -= fy;
             }
             
-            if (true) {
-                // pressure
-                var p = 0.0;
-                chain.signed_regions.forEach(([sign, region]) => {
-                    p += sign * region.pressure
-                })
-                const n = chain.vertices.length;
-                for (var i=1; i<n-1; ++i) {
-                    const v = chain.vertices[i>0?i-1:i];
-                    const z = chain.vertices[i];
-                    const w = chain.vertices[i<n-1?i+1:i];
-                    const fx = w.y-v.y;
-                    const fy = v.x-w.x;
-                    const l = Math.sqrt(Math.pow(fx,2) + Math.pow(fy,2));
+            // pressure
+            var p = 0.0;
+            chain.signed_regions.forEach(([sign, region]) => {
+                p += sign * region.pressure
+            })
+            // var ds = chain.length() / (chain.vertices.length-1);
+            if (Math.abs(p) > this.ds) p *= this.ds / Math.abs(p)
+            const n = chain.vertices.length;
+            for (var i=1; i<n-1; ++i) {
+                const v = chain.vertices[i>0?i-1:i];
+                const z = chain.vertices[i];
+                const w = chain.vertices[i<n-1?i+1:i];
+                const fx = w.y-v.y;
+                const fy = v.x-w.x;
+                const l = Math.sqrt(fx*fx + fy*fy);
 
-                    z.force.x += p*fx/l;
-                    z.force.y += p*fy/l;
-                }
+                z.force.x += p*fx/l;
+                z.force.y += p*fy/l;
             }
-        });
+        })
     }
 
     equalize() {
         this.chains.forEach(chain => {
             const n = chain.vertices.length-1;
-            if (this.ds * (n+1) < chain.length()) {
+            const l = chain.length()
+            if (this.ds * (n+1) < l) {
                 // add one more segment
                 const k = Math.floor(Math.random()*(n-1));
                 const v = chain.vertices[k]; // insert between this
                 const w = chain.vertices[k+1]; // and this
                 chain.vertices.splice(k+1, 0, new Vertex((v.x+w.x)/2, (v.y+w.y)/2));
-            } else if (this.ds * (n-1) > chain.length()) {
-                if (n <= 5) {
+            } else if (this.ds * (n-1) > l) {
+                if (l < this.ds && false) {
                     console.log("MERGE")
                     console.log(this.info())
                     dump({ n1: chain.vertex_start().signed_chains.length,
@@ -144,7 +146,7 @@ class Cluster {
                     dump({n: node.signed_chains.length })
                     console.log(this.info())
                     this.split_vertex(node)
-                } else {
+                } else if (n>3) {
                     const k = Math.floor(Math.random()*(n-1));
                     chain.vertices.splice(k+1, 1);
                 }
@@ -160,6 +162,18 @@ class Cluster {
 
         // move vertices along forces
         this.each_vertex(vertex => vertex.evolve(dt));
+
+        // move nodes on baricenter
+        this.nodes.forEach(node => {
+            let p = new Vec(0.0, 0.0)
+            node.signed_chains.forEach(([sign, chain]) => {
+                p.add(chain.adjacent_node(sign))
+            })
+            p = vec_div(p, node.signed_chains.length)
+            node.x = p.x
+            node.y = p.y
+            // node.set(p)
+        }) 
 
         this.invalidate_deep();
 
@@ -336,7 +350,7 @@ class Cluster {
             region.cluster = this
             region.signed_chains = [ [sign, chain] ]
             chain.signed_regions.push([sign, region])
-            region.area_target = area
+            region.area_target = Math.abs(area)
             this.regions.push(region)
             return
         }
@@ -421,6 +435,7 @@ class Cluster {
             } else if (path1 === null && path2 !== null) {
                 path1 = path2
             } else {
+                console.log(this.info())
                 console.log("CANNOT LOCATE EXTERNAL PATH")
                 return
             }

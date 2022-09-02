@@ -65,6 +65,10 @@ class Chain {
 
     vertex_end() { return this.vertices[this.vertices.length-1] }
 
+    adjacent_node(sign) {
+        return sign>0 ? this.vertices[1] : this.vertices[this.vertices.length-2]
+    }
+
     angle_start() { 
         return vec_angle(vec_sub(this.vertices[1],this.vertices[0]))
     }
