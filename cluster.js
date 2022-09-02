@@ -12,6 +12,8 @@ class Cluster {
         this.id_vertex = 1
         this.id_chain = 1
         this.id_region = 1
+
+        this.fix_topology = true
     }
 
     toJSON() {
@@ -93,13 +95,17 @@ class Cluster {
                 const v = chain.vertices[i-1];
                 const w = chain.vertices[i];
 
-                const fx = (w.x-v.x)/r;
-                const fy = (w.y-v.y)/r;
+                const fx = (w.x-v.x)*r;
+                const fy = (w.y-v.y)*r;
 
-                v.force.x += fx;
-                v.force.y += fy;
-                w.force.x -= fx;
-                w.force.y -= fy;
+                if (i>1) {
+                    v.force.x += fx;
+                    v.force.y += fy;
+                } 
+                if (i<chain.vertices.length-1) {
+                    w.force.x -= fx;
+                    w.force.y -= fy;
+                }
             }
             
             // pressure
@@ -128,14 +134,14 @@ class Cluster {
         this.chains.forEach(chain => {
             const n = chain.vertices.length-1;
             const l = chain.length()
-            if (this.ds * (n+1) < l) {
+            if (n < 3 || this.ds * (n+1) < l) {
                 // add one more segment
                 const k = Math.floor(Math.random()*(n-1));
                 const v = chain.vertices[k]; // insert between this
                 const w = chain.vertices[k+1]; // and this
                 chain.vertices.splice(k+1, 0, new Vertex((v.x+w.x)/2, (v.y+w.y)/2));
             } else if (this.ds * (n-1) > l) {
-                if (l < this.ds && false) {
+                if (l < this.ds && !this.fix_topology) {
                     console.log("MERGE")
                     console.log(this.info())
                     dump({ n1: chain.vertex_start().signed_chains.length,

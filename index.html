@@ -14,6 +14,12 @@
         <script src="cluster.js"></script>
         <script src="myctx.js"></script>
         <script src="main.js"></script>
+        <script>
+            let main = null
+            $(() => {
+                main = new Main();
+            });
+        </script>
 
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css"> <!-- for github icon -->
 
@@ -37,9 +43,7 @@
         <h2>js-bubble</h2>
         <canvas id="canvas" width="640" height="480"></canvas>
         <div id="div"></div>
-        <p>Please draw curves counter-clockwise! 
-            First curve will be closed. 
-            Next curves will attach to the exterior boundary.</p>
+        <p>Draw a closed curve. Then draw new edges.</p>
         <p><a href="https://github.com/paolini/jsbubble"><i class="fa fa-github"></i>Source code</a></p>
     </body>
 </html>

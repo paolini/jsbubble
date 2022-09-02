@@ -5,15 +5,25 @@
             integrity="sha256-9/aliU8dGd2tb6OSsuzixeV4y/faTqgFtohetphbbj0="
             crossorigin="anonymous"></script>
 
-        <script src="assert.js"></script>
-        <script src="vec.js"></script>
-        <script src="vertex.js"></script>
-        <script src="chain.js"></script>
-        <script src="region.js"></script>
-        <script src="cluster.js"></script>
-        <script src="myctx.js"></script>
-        <script>document.mycustom=true;</script>
-    <script src="main.js"></script>
+            <script src="assert.js"></script>
+            <script src="common.js"></script>
+            <script src="vec.js"></script>
+            <script src="vertex.js"></script>
+            <script src="chain.js"></script>
+            <script src="region.js"></script>
+            <script src="cluster.js"></script>
+            <script src="myctx.js"></script>
+            <script src="main.js"></script>
+            <script>
+                let main = null
+                $(() => {
+                    main = new Main({
+                        stroke_color: "orange",
+                        bg_color: "#000",
+                        node_color: "cyan",
+                    })
+                })
+            </script>    
     </head>
     <body style="color: white">
         <div class="row" style="display: flex">

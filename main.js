@@ -1,22 +1,36 @@
 function $elem(s) {return $(`<${s}></${s}>`);}
 
 class Main {
-    constructor() {
-        this.custom = document.mycustom != undefined;
+    constructor(options) {
+        this.options = {
+            canvas: null,
+            div: null,
+            draw_nodes: true,
+            draw_vertices: false,
+            draw_forces: false,
+            draw_unit_square: false,
+            draw_ids: false,
+            bg_color: "#eee",
+            stroke_color: "blue",
+            pen_color: "gray",
+            force_color: "green",
+            vertex_color: "black",
+            node_color: "red",
+            vertex_id_color: "black",
+            chain_id_color: "blue",
+            fix_topology: true,
+            ...options
+        }
 
-        const canvas = $("#canvas")[0];
+        const canvas = this.options.canvas || $("#canvas")[0];
         canvas.style.touchAction = "none";
-        this.$div = $("#div");
+        this.$div = this.options.div || $("#div");
 
         this.myctx = new MyCtx(0, 0, 10);
         this.myctx.reset_canvas(canvas);
 //        this.cluster = new_bouquet(2);
         this.cluster = new Cluster();
-        this.draw_nodes = true;
-        this.draw_vertices = false;
-        this.draw_forces = false;
-        this.draw_unit_square = false;
-        this.draw_ids = false
+
         this.loop = true;
         this.n_regions = -1;
         this.dt = 0.2;
@@ -52,11 +66,10 @@ class Main {
     }
         
     plot() {
-        const ctx = this.myctx;
-        if (this.custom) ctx.clear();
-        else ctx.background("#eee");
+        const ctx = this.myctx
+        ctx.background(this.options.bg_color)
 
-        if (this.draw_unit_square) {
+        if (this.options.draw_unit_square) {
             ctx.setStrokeColor("blue");
             ctx.beginPath();
             ctx.moveTo(0.0, 0.0);
@@ -77,28 +90,30 @@ class Main {
             ctx.stroke();
         }
 
-        ctx.setStrokeColor(this.custom?"orange":"blue");
+        ctx.setStrokeColor(this.options.stroke_color);
         this.cluster.chains.forEach(chain => draw_curve(chain.vertices));
 
-        if (this.draw_forces) {
-            ctx.setStrokeColor("green");
+        if (this.options.draw_forces) {
+            ctx.setStrokeColor(this.options.force_color);
             this.cluster.each_vertex(function(v){
                 ctx.beginPath();
                 ctx.moveTo(v.x, v.y);
-                ctx.lineTo(v.x + v.force.x, v.y+v.force.y);
+                ctx.lineTo(v.x + v.force.x*100, v.y+v.force.y*100);
                 ctx.stroke();
             });
         }
 
-        if (this.draw_vertices) {
-            ctx.setStrokeColor("red");
+        if (this.options.draw_vertices) {
+            ctx.setStrokeColor(this.options.vertex_color);
             this.cluster.each_vertex(function(v){
                 ctx.beginPath();
-                ctx.circle(v.x, v.y, 2/ctx.scale);
+                ctx.circle(v.x, v.y, 1/ctx.scale);
                 ctx.stroke();
             });
-        } else if (this.draw_nodes) {
-            ctx.setStrokeColor("red");
+        } 
+        
+        if (this.options.draw_nodes) {
+            ctx.setStrokeColor(this.options.node_color);
             this.cluster.nodes.forEach(function(v){
                 ctx.beginPath();
                 ctx.circle(v.x, v.y, 2/ctx.scale);
@@ -106,11 +121,11 @@ class Main {
             });
         }
 
-        if (this.draw_ids) {
+        if (this.options.draw_ids) {
             this.cluster.info()
-            ctx.setFillColor("black")
+            ctx.setFillColor(this.options.vertex_id_color)
             this.cluster.nodes.forEach(v => ctx.fillText(`${v.id}`, v.x, v.y))
-            ctx.setFillColor("blue")
+            ctx.setFillColor(this.options.chain_id_color)
             this.cluster.chains.forEach(chain => {
                 const v = chain.vertices[Math.floor(chain.vertices.length/3)]
                 ctx.fillText(`${chain.id}`, v.x, v.y)
@@ -119,7 +134,7 @@ class Main {
 
         
         if (this.new_vertices !== null) {
-            ctx.setStrokeColor(this.custom?"orange":"black");
+            ctx.setStrokeColor(this.options.pen_color);
             draw_curve(this.new_vertices);
         }
     }
@@ -194,6 +209,7 @@ class Main {
     }
 
     update() {
+        this.cluster.fix_topology = this.options.fix_topology
         this.cluster.evolve(this.dt);
         this.draw();
         if (this.loop) window.requestAnimationFrame(() => this.update());
@@ -201,9 +217,3 @@ class Main {
 
 }
 
-let main = null
-
-$(() => {
-    console.log("jsbubble");
-    main = new Main();
-});
