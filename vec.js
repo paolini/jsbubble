@@ -12,9 +12,9 @@ class Vec {
         }
     }
 
-    set(x, y) {
-        this.x = x;
-        this.y = y;
+    set(v) {
+        this.x = v.x;
+        this.y = v.y;
     }
 
     add(v) {
@@ -61,6 +61,10 @@ function vec_mul(v, t) {
 
 function vec_div(v, t) {
     return new Vec(v.x / t, v.y / t);
+}
+
+function vec_angle(v) {
+    return Math.atan2(v.y, v.x)
 }
 
 function lines_intersect(p0, p1, q0, q1) {

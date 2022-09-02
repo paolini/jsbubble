@@ -8,6 +8,10 @@ class Chain {
         this.invalidate()
     }
 
+    toJSON() {
+        return `Chain(${this.id || ""})`
+    }
+
     invalidate() {
         this._length = null
         this._area = null
@@ -61,6 +65,23 @@ class Chain {
 
     vertex_end() { return this.vertices[this.vertices.length-1] }
 
+    adjacent_node(sign) {
+        return sign>0 ? this.vertices[1] : this.vertices[this.vertices.length-2]
+    }
+
+    angle_start() { 
+        return vec_angle(vec_sub(this.vertices[1],this.vertices[0]))
+    }
+
+    angle_end() {
+        const n = this.vertices.length
+        return vec_angle(vec_sub(this.vertices[n-2],this.vertices[n-1]))
+    }
+
+    angle_node(sign) {
+        return sign>0 ? this.angle_start() : this.angle_end()
+    }
+
     node(sign) { return sign > 0 ? this.vertex_end() : this.vertex_start() }
 
     intersection_count(p) {
@@ -105,7 +126,21 @@ class Chain {
         cluster.nodes.push(node)
         let vertices = this.vertices.splice(0,i) // cut first part
         let chain2 = this
-        start.signed_chains = start.signed_chains.filter(([sign, chain]) => !(chain === this && sign === 1))
+
+        if (start === this.vertex_end() && start.signed_chains.length === 2) {
+            // this is a closed detached loop. Instead of splitting 
+            // rotate node to be the single vertex
+
+            vertices.push(node) // duplicate node
+            this.vertices.pop() // remove one copy of old start
+            this.vertices.push(...vertices)
+            start.signed_chains = []
+            node.signed_chains = [[1, this], [-1, this]]
+            array_remove(cluster.nodes, start)
+            return node
+        }
+
+        signed_elements_remove(start.signed_chains, 1, this)
         node.signed_chains.push([1, this]) 
         vertices.push(node)
         let chain1 = new Chain(vertices)
@@ -119,6 +154,6 @@ class Chain {
             region.signed_chains.push([sign, chain1])
         })
 
-        return { chain1, node, chain2 }
+        return node
     }
 }

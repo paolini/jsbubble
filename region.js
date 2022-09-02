@@ -68,6 +68,14 @@ class Region {
         }
     }
 
+    clear() {
+        // remove all chains
+        this.signed_chains.forEach(([sign,chain]) => {
+            signed_elements_remove(chain.signed_regions, null, this)
+        })
+        this.signed_chains = []
+    }
+
     split(chain) {
         //
         // create new region by splitting this with chain
@@ -97,15 +105,16 @@ class Region {
         // move chains of cycle from this to new region
         let start = chain.vertex_end()
         let end = chain.vertex_start()
+        let path = locate_path(this.signed_chains, start, end, 1)
+        if (path === null) return null
+
         let region = new Region()
         region.cluster = this.cluster
         this.cluster.regions.push(region)
 
-        let path = locate_path(this.signed_chains, start, end, 1)
 
         path.forEach(([sign, chain]) => {
-            this.signed_chains = this.signed_chains.filter(
-                ([s, c]) => !(s===sign && c === chain))
+            signed_elements_remove(this.signed_chains, sign, chain)
             region.signed_chains.push([sign, chain])
 
             chain.signed_regions = chain.signed_regions
@@ -134,23 +143,4 @@ class Region {
 
         return region
     }
-}
-
-function locate_path(signed_chains, start, end, sign) {
-    // return a signed_chains following the oriented chains
-    // from start to end 
-    let path = []
-    for(let v=start; v!== end;) {
-        let next = null
-        signed_chains.some(([s, chain]) => {
-            if (chain.node(-sign*s) === v) {
-                next = chain.node(sign*s)
-                path.push([s*sign, chain])
-                return true
-            }
-        })
-        if (next === null) throw new Error("locate_path failed")
-        v = next
-    }
-    return path
 }
