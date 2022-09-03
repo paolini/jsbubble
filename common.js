@@ -2,6 +2,8 @@ function str(x) {
     return JSON.stringify(x)
 }
 
+function round(x) { return Math.round(x*1E3)/1E3 }
+        
 function dump(x) {
     console.log(str(x))
 }
@@ -108,3 +110,18 @@ function path_area(signed_chains) {
     return area
 }
 
+function compare_json(one, two) {
+    if (Array.isArray(one)) {
+        if (!Array.isArray(two)) throw new Error()
+        if (one.length !== two.length) throw new Error()
+        for (let i=0; i< one.length; ++i) compare_json(one[i], two[i])
+    } else if (typeof(one) === 'object') {
+        if (!typeof(two) === 'object') throw new Error()
+        const keys = Object.keys(one).sort()
+        compare_json(keys, Object.keys(two).sort())
+        keys.forEach(key => compare_json(one[key], two[key]))
+    } else {
+        if (one !== two) throw new Error(`${one}!=${two}`)
+    }
+    return true
+}

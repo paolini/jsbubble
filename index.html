@@ -14,11 +14,16 @@
         <script src="cluster.js"></script>
         <script src="myctx.js"></script>
         <script src="main.js"></script>
+        <script src="test.js"></script>
         <script>
             let main = null
             $(() => {
-                main = new Main();
-            });
+                test(new Main({canvas: null, div: null}))
+                main = new Main({
+                    canvas: document.getElementById("canvas"), 
+                    div: document.getElementById("div"),
+                })
+            })
         </script>
 
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css"> <!-- for github icon -->

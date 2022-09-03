@@ -28,102 +28,72 @@ class Main {
             show_buttons: true,
             show_measures: true,
             show_options: true,
+            record_commands: true,
+            dt: 0.2,
+            ds: 0.1,
             ...options
         }
 
         this.selected_tool = "draw"
 
-        const canvas = this.options.canvas || $("#canvas")[0];
-        canvas.style.touchAction = "none";
-        this.$div = this.options.div || $("#div");
+        this.cluster = null
 
-        this.myctx = new MyCtx(0, 0, 10);
-        this.myctx.reset_canvas(canvas);
-//        this.cluster = new_bouquet(2);
-        this.cluster = new Cluster();
-
-        this.loop = true;
-        this.n_regions = -1;
-        this.dt = 0.2;
+        this.loop = true
+        this.n_regions = -1
         this.new_chain = null
-        this.new_vertices = null;
+        this.new_vertices = null
+        this.records = []
+        this.recorded_options = {}
+        this.record_update_count = 0
+
+        this.myctx = null        
+        
+        if (this.options.canvas) this.set_canvas(this.options.canvas)
+
+        this.command_reset()
+        this.update()
+    }
+
+    set_canvas(canvas) {
+        // if (canvas.style) canvas.style.touchAction = "none"
+        this.myctx = new MyCtx(0, 0, 10)
+        this.myctx.reset_canvas(canvas)
 
         function on_mouse_down(evt) {
+            const p = new Vec(...this.myctx.getCursorPosition(evt))
             if (this.selected_tool === "remove") {
-                const p = new Vec(...this.myctx.getCursorPosition(evt))
-                let region = this.cluster.region_containing(p)
-                let { chain } = find_closest_chain(this.cluster.chains, p)
-                if (chain === null) return
-                if (region === null && chain && chain.signed_regions.length > 0) {
-                    region = chain.signed_regions[0][1]
-                }
-                if (region) {
-                    let other_region = null
-                    if (chain && chain.signed_regions.length > 1) {
-                        other_region = chain.signed_regions[0][1]
-                        if (other_region === region) {
-                            other_region = chain.signed_regions[1][1]
-                        }
-                    }
-                    if (other_region !== null) {
-                        region.signed_chains.forEach(([sign, chain])=> {
-                            other_region.signed_chains.push([sign,chain])
-                            chain.signed_regions.push([sign, other_region])
-                        })
-                        other_region.area_target += region.area_target
-                    }
-                    this.cluster.remove_region(region)
-                }
-                if (chain) this.cluster.remove_chain(chain)
-                this.cluster.simplify_chains()
-                this.cluster.simplify_vertices()
+                this.command_remove(p)
             } else if (this.selected_tool === "flip") {
-                const p = new Vec(...this.myctx.getCursorPosition(evt))
-                let { chain } = find_closest_chain(this.cluster.chains, p)
-                if (chain === null) return
-                this.cluster.flip_chain(chain)
+                this.command_flip(p)
             } else if (this.selected_tool === "collapse") {
-                const p = new Vec(...this.myctx.getCursorPosition(evt))
-                let { chain } = find_closest_chain(this.cluster.chains, p)
-                if (chain === null) return
-                this.cluster.collapse_chain(chain)
+                this.command_collapse(p)
             }
+            if (!this.loop) this.draw()
         }
 
         function on_mouse_move(evt) {
             if (this.selected_tool === "draw") {
+                const p = new Vertex(...this.myctx.getCursorPosition(evt))
                 if (evt.buttons == 1) {
-                    const p = new Vertex(...this.myctx.getCursorPosition(evt))
-                    if (this.new_vertices === null) {
-                        this.new_vertices = [];
-                    }
-                    if (this.new_vertices.length == 0 || vec_distance(last(this.new_vertices), p) > this.cluster.ds) {
-                        this.new_vertices.push(p)
-                    }
+                    this.command_draw(p)
+                    if (!this.loop) this.draw()
                 }
             }
         }
 
         function on_mouse_up(evt) {
             if (this.selected_tool === "draw") {
-                if (this.new_vertices && this.new_vertices.length >= 2) {
-                    let chain = new Chain(this.new_vertices)
-                    this.cluster.add_chain(chain)
-                    this.cluster.graft_chain(chain);
-                }
-                this.new_vertices = null;
+                this.command_draw(null)
+                if (!this.loop) this.draw()
             }
         }
 
         canvas.addEventListener("pointerdown", on_mouse_down.bind(this), false)
         canvas.addEventListener("pointermove", on_mouse_move.bind(this), false)
         canvas.addEventListener("pointerup", on_mouse_up.bind(this), false)
-
-        this.update();
     }
-        
-    plot() {
-        const ctx = this.myctx
+    
+    plot(ctx) {
         ctx.background(this.options.bg_color)
 
         if (this.cluster.chains.length === 0) {
@@ -243,9 +213,9 @@ class Main {
         }
     }
 
-    populate_html() {
+    populate_html($div) {
         const self = this
-        this.$div.empty();
+        $div.empty();
 
         let tools = {
             "draw": (this.cluster.regions.length === 0 
@@ -256,44 +226,46 @@ class Main {
             "collapse": "shrink an edge"
         }
         let $select = $elem("select")
-        this.$div.append($select)
+        $div.append($select)
         Object.entries(tools).forEach( ([key,val]) => {
             $select.append($elem("option").attr("value", key).text(val))
         })
         $select.val(this.selected_tool)
         $select.change(function() {self.selected_tool = $(this).val()})
-        this.$div.append($elem("br"))
+        $div.append($elem("br"))
 
-        // if (this.custom) this.$div.hide();
         if (this.options.show_buttons) {
             let $button = $elem("button");
             const set_button_text = () => {
-                $button.text(this.loop?"pause":"continue");
-            };
-            set_button_text();
+                $button.text(this.loop?"pause":"continue")
+            }
+            set_button_text()
             $button.click(() => {
-                this.loop = !this.loop;
-                set_button_text();
-                if (this.loop) this.update();
-            });
-            this.$div.append($button);
-            this.$div.append($elem("button").text("step").click(() => {
-                this.loop = 0; 
-                set_button_text();
-                this.update();
-            }));
-            this.$div.append($elem("button").text("reset").click(() => {
-                this.cluster = new Cluster();
-            }));
+                this.loop = !this.loop
+                set_button_text()
+                if (this.loop) this.update()
+            })
+            $div.append($button)
+
+            $div.append($elem("button").text("step").click(() => {
+                this.loop = 0 
+                set_button_text()
+                this.update()
+            }))
+
+            $div.append($elem("button").text("reset").click(() => {
+                this.command_reset()
+                if (!this.loop) this.draw()
+            }))
         }
         if (this.options.show_options) {
             const add_checkbox=(option_name, option_description)=>{
-                this.$div.append($elem("input")
+                $div.append($elem("input")
                     .attr("type", "checkbox")
                     .prop("checked", this.options[option_name])
                     .change(function() { 
                         self.options[option_name] = $(this).prop("checked")
-                        self.n_regions = null // force redraw
+                        self.draw()
                     })).append($elem("span").text(option_description))
             }
 
@@ -301,7 +273,7 @@ class Main {
             add_checkbox("draw_forces", "draw forces")
         }
         if (this.options.show_measures && this.cluster.regions.length > 0) {
-            this.$div.append($elem("p").attr("id", "perimeter"));
+            $div.append($elem("p").attr("id", "perimeter"));
             var $table = $elem("table");
             $table.append($elem("tr")
                 .append($elem("th").attr('style', 'width: 2em').text("region"))
@@ -329,7 +301,7 @@ class Main {
                     .append($elem("td").attr("id", "pressure_" + i))
                     .append($elem("td").attr("id", "perimeter_" + i)));
             });
-            this.$div.append($table);
+            $div.append($table);
         }
         this.update_html();
     }
@@ -347,19 +319,113 @@ class Main {
     draw() {
         if (this.n_regions != this.cluster.regions.length) {
             // repopulate html if the number of regions has changed
-            this.populate_html();
-            this.n_regions = this.cluster.regions.length;
+            if (this.options.div) this.populate_html($(this.options.div))
+            this.n_regions = this.cluster.regions.length
         }
-        this.plot();
-        this.update_html();
+        if (this.myctx) this.plot(this.myctx)
+        if (this.options.div) this.update_html();
     }
 
     update() {
         this.cluster.fix_topology = this.options.fix_topology
-        this.cluster.evolve(this.dt);
+        this.cluster.dt = this.options.dt
+        this.cluster.ds = this.options.ds
+        this.cluster.evolve();
+        if (this.cluster.regions.length === 0) this.selected_tool = "draw"
         this.draw();
         if (this.loop) window.requestAnimationFrame(() => this.update());
     }
 
+    record(msg) {
+        if (!this.options.record_commands) return
+        ["ds", "dt"].forEach(key => {
+            const val = this.options[key]
+            const v = this.recorded_options[key]
+            if (v!==val) {
+                if (key === "ds" || key === "dt") this.records.push(`main.cluster.${key}=${JSON.stringify(val)}`)
+                this.recorded_options[key] = val
+            }
+        })
+        this.records.push(msg)
+    }
+
+    command_reset() {
+        this.record(`main.command_reset()`)
+        this.cluster = new Cluster(this.options.ds, this.options.dt)
+    }
+
+
+    command_draw(p) {
+        if (p !== null) {
+            if (this.new_vertices === null) {
+                this.new_vertices = [];
+            }
+            if (this.new_vertices.length == 0 
+                || vec_distance(last(this.new_vertices), p) > this.options.ds) {
+                this.new_vertices.push(p)
+            }
+        } else {
+            if (this.new_vertices && this.new_vertices.length >= 2) {
+                this.new_vertices.forEach(p => {
+                    this.record(`main.command_draw(new Vertex(${p.x},${p.y}))`)
+                })
+                this.record(`main.command_draw(null)`)
+                let chain = new Chain(this.new_vertices)
+                this.cluster.add_chain(chain)
+                this.cluster.graft_chain(chain);
+            }
+            this.new_vertices = null;
+        }
+    }
+
+    command_flip(p) {
+        this.record(`main.command_flip(new Vec(${p.x},${p.y}))`)
+        let { chain } = find_closest_chain(this.cluster.chains, p)
+        if (chain === null) return
+        this.cluster.flip_chain(chain)
+    }
+
+    command_collapse(p) {
+        this.record(`main.command_collapse(new Vec(${p.x},${p.y}))`)
+        let { chain } = find_closest_chain(this.cluster.chains, p)
+        if (chain === null) return
+        this.cluster.collapse_chain(chain)
+    }
+
+    command_remove(p) {
+        this.record(`main.command_remove(new Vec(${p.x},${p.y}))`)
+        let region = this.cluster.region_containing(p)
+        let { chain } = find_closest_chain(this.cluster.chains, p)
+        if (chain === null) return
+        if (region === null && chain && chain.signed_regions.length > 0) {
+            region = chain.signed_regions[0][1]
+        }
+        if (region) {
+            let other_region = null
+            if (chain && chain.signed_regions.length > 1) {
+                other_region = chain.signed_regions[0][1]
+                if (other_region === region) {
+                    other_region = chain.signed_regions[1][1]
+                }
+            }
+            if (other_region !== null) {
+                region.signed_chains.forEach(([sign, chain])=> {
+                    other_region.signed_chains.push([sign,chain])
+                    chain.signed_regions.push([sign, other_region])
+                })
+                other_region.area_target += region.area_target
+            }
+            this.cluster.remove_region(region)
+        }
+        if (chain) this.cluster.remove_chain(chain)
+        this.cluster.simplify_chains()
+        this.cluster.simplify_vertices()
+    }
+
+    command_check(other) {
+        const my = this.cluster.json()
+        const check = compare_json(my, other)
+        return check
+    }
 }
 

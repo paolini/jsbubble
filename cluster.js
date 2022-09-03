@@ -1,8 +1,9 @@
 class Cluster {
-    constructor() {
+    constructor(ds, dt) {
         this.regions = []
 
-        this.ds = 0.1 // length of segments
+        this.ds = ds || 0.1 // length of segments
+        this.dt = dt || 0.2 // speed of evolution
 
         // computed:
         this.chains = []
@@ -164,13 +165,13 @@ class Cluster {
 
     }
 
-    evolve(dt) {
+    evolve() {
         this.regions.forEach(function(region){
             region.area_prev = region.area();
         });
 
         // move vertices along forces
-        this.each_vertex(vertex => vertex.evolve(dt));
+        this.each_vertex(vertex => vertex.evolve(this.dt));
 
         // move nodes on baricenter
         this.nodes.forEach(node => {
@@ -598,6 +599,23 @@ class Cluster {
             `  ${region.id} chains: ${join(region.signed_chains)}`
         ))
         return info.join("\n")
+    }
+
+    json() {
+        const nodes = this.nodes.map(v => [round(v.x),round(v.x)])
+        const chains = this.chains.map(chain => {
+            const start = this.nodes.indexOf(chain.vertex_start())
+            const end = this.nodes.indexOf(chain.vertex_end())
+            const vertices = chain.vertices.slice(1,-1).map(
+                v => [round(v.x),round(v.y)])
+            return { start, end, vertices }
+            })
+        const regions = this.regions.map(region => {
+            const chains = region.signed_chains.map(([s,c]) => s*(1+this.chains.indexOf(c)))
+            const area_target = round(region.area_target)
+            return { area_target, chains }
+            })
+        return { nodes, chains, regions }
     }
 
 }
