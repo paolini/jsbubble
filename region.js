@@ -80,40 +80,4 @@ class Region {
                 }))
     }
 
-    split(chain) {
-        let area = this.area()
-        const [start, end] = chain.vertices_start_end()
-        let path = locate_path(this.signed_chains, end, start, 1)
-        path.push([1, chain])
-        if (path === null) throw new Error("invalid topology")
-
-        // choose smallest of two parts
-        let a = path_area(path) 
-        let sign =  a / area < 0.5 ? 1 : - 1 // SIC! Even when area < 0
-        let region = this.cluster.add_region(new Region())
-
-        if (sign < 0) {
-            path = locate_path(this.signed_chains, start, end, 1)
-            path.push([-1, chain])
-            if (path === null) throw new Error("invalid topology")    
-        }
-        
-        path.forEach(([s, chain]) => {
-            region.add_chain(s, chain)
-            this.add_chain(-s, chain)
-        })
-        
-        this.invalidate()
-        
-        // subdivide target_area proportionally
-        if (this.area_target > 0) {
-            let ratio = area / this.area_target
-            this.area_target = ratio * this.area()
-            region.area_target = ratio * region.area()
-        } else {
-            region.area_target = region.area()
-        }      
-
-        return region
-    }
 }

@@ -387,6 +387,43 @@ class Cluster {
         }
     }
 
+    split_region(region, chain) {
+        let area = region.area()
+        const [start, end] = chain.vertices_start_end()
+        let path = locate_path(region.signed_chains, end, start, 1)
+        path.push([1, chain])
+        if (path === null) throw new Error("invalid topology")
+
+        // choose smallest of two parts
+        let a = path_area(path) 
+        let sign =  a / area < 0.5 ? 1 : - 1 // SIC! Even when area < 0
+        let new_region = this.add_region(new Region())
+
+        if (sign < 0) {
+            path = locate_path(region.signed_chains, start, end, 1)
+            path.push([-1, chain])
+            if (path === null) throw new Error("invalid topology")    
+        }
+        
+        path.forEach(([s, chain]) => {
+            new_region.add_chain(s, chain)
+            region.add_chain(-s, chain)
+        })
+        
+        region.invalidate()
+        
+        // subdivide target_area proportionally
+        if (region.area_target > 0) {
+            let ratio = area / region.area_target
+            region.area_target = ratio * region.area()
+            new_region.area_target = ratio * new_region.area()
+        } else {
+            new_region.area_target = new_region.area()
+        }      
+
+        return new_region
+    }
+
     split_vertex(vertex) {
         // if there are at least 4 chains joining in the vertex
         // find the smallest angle and add a small chain and a triple point
@@ -453,6 +490,51 @@ class Cluster {
         })
     }
 
+    split_chain(chain, idx) {
+        // split the chain at vertex i
+        //
+        //      start >--- this ---> end
+        //
+        // return { chain1, node, chain2 }
+        //
+        // start >--- chain1 ---> node >--- chain2=this ---> end  
+
+        let node = chain.vertices[idx]
+        let start = chain.vertices[0]
+        this.nodes.push(node)
+        let vertices = chain.vertices.splice(0,idx) // cut first part
+        let chain2 = chain
+
+        if (start === chain.vertex_end() && start.signed_chains.length === 2) {
+            // chain is a closed detached loop. Instead of splitting 
+            // rotate node to be the single vertex
+
+            vertices.push(node) // duplicate node
+            chain.vertices.pop() // remove one copy of old start
+            chain.vertices.push(...vertices)
+            start.signed_chains = []
+            node.signed_chains = [[1, chain], [-1, chain]]
+            array_remove(this.nodes, start)
+            return node
+        }
+
+        signed_elements_remove(start.signed_chains, 1, chain)
+        node.signed_chains.push([1, chain]) 
+        vertices.push(node)
+        let chain1 = new Chain(vertices)
+        this.chains.push(chain1)
+
+        chain1.invalidate()
+        chain2.invalidate()
+
+        chain2.signed_regions.forEach(([sign, region]) => {
+            chain1.signed_regions.push([sign, region])
+            region.signed_chains.push([sign, chain1])
+        })
+
+        return node
+    }
+
     graft_chain(chain) {
         // 0. in case this is the first chain 
         // make a closed loop
@@ -477,16 +559,16 @@ class Cluster {
             let chains = region.signed_chains.map(([sign, chain]) => chain)
             let start = find_closest_chain(chains, chain.vertex_start())
             // start = { dist, chain, idx }
-            start = start.chain.split(start.idx, this)
+            start = this.split_chain(start.chain, start.idx)
             this.pinch_vertices(start, chain.vertex_start())
 
             // compute chains again...
             chains = region.signed_chains.map(([sign, chain]) => chain)
             let end = find_closest_chain(chains, chain.vertex_end())
             // end = { dist, chain, idx }
-            end = end.chain.split(end.idx, this)
+            end = this.split_chain(end.chain,end.idx)
             this.pinch_vertices(end, chain.vertex_end())
-            const new_region = region.split(chain)
+            const new_region = this.split_region(region, chain)
             if (region === this.external_region) {
                 new_region.area_target = new_region.area()
             }

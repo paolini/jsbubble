@@ -146,56 +146,5 @@ class Chain {
         }
         return count;
     }
-
-    has_negative_region() {
-        this.signed_regions.forEach(([sign, region]) => {
-            if (sign < 0) return true
-        })
-        return false
-    }
-
-    split(i, cluster) {
-        // split the chain at vertex i
-        //
-        //      start >--- this ---> end
-        //
-        // return { chain1, node, chain2 }
-        //
-        // start >--- chain1 ---> node >--- chain2=this ---> end  
-
-        let start = this.vertices[0]
-        let node = this.vertices[i]
-        cluster.nodes.push(node)
-        let vertices = this.vertices.splice(0,i) // cut first part
-        let chain2 = this
-
-        if (start === this.vertex_end() && start.signed_chains.length === 2) {
-            // this is a closed detached loop. Instead of splitting 
-            // rotate node to be the single vertex
-
-            vertices.push(node) // duplicate node
-            this.vertices.pop() // remove one copy of old start
-            this.vertices.push(...vertices)
-            start.signed_chains = []
-            node.signed_chains = [[1, this], [-1, this]]
-            array_remove(cluster.nodes, start)
-            return node
-        }
-
-        signed_elements_remove(start.signed_chains, 1, this)
-        node.signed_chains.push([1, this]) 
-        vertices.push(node)
-        let chain1 = new Chain(vertices)
-        cluster.chains.push(chain1)
-
-        chain1.invalidate()
-        chain2.invalidate()
-
-        chain2.signed_regions.forEach(([sign, region]) => {
-            chain1.signed_regions.push([sign, region])
-            region.signed_chains.push([sign, chain1])
-        })
-
-        return node
-    }
 }
+
