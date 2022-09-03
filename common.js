@@ -1,9 +1,30 @@
+/**
+ * Copyright 2021, 2022 Emanuele Paolini (emanuele.paolini@unipi.it)
+ * This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ * You should have received a copy of the GNU General Public License along with this program. If not, see <https://www.gnu.org/licenses/>.
+ **/
+
+const VERSION = "1.0.0"
+
+function $elem(s) {return $(`<${s}></${s}>`);}
+
 function str(x) {
     return JSON.stringify(x)
 }
 
 function round(x) { return Math.round(x*1E3)/1E3 }
         
+function assert(condition, message=null) {
+    if (!condition) {
+        throw "assertion failed" + (message?": "+ message:"");
+    }
+}
+
+function assert_close(x1, x2, error=1E-10, message=null) {
+    assert(Math.abs(x1-x2) < error, message);
+}
+
 function dump(x) {
     console.log(str(x))
 }
