@@ -1,17 +1,29 @@
-class Cluster {
-    constructor() {
-        this.regions = []; 
+/**
+ * Copyright 2021, 2022 Emanuele Paolini (emanuele.paolini@unipi.it)
+ * This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ * You should have received a copy of the GNU General Public License along with this program. If not, see <https://www.gnu.org/licenses/>.
+ **/
 
-        this.ds = 0.1; // length of segments
+class Cluster {
+    constructor(ds, dt) {
+        this.regions = []
+
+        this.ds = ds || 0.1 // length of segments
+        this.dt = dt || 0.2 // speed of evolution
 
         // computed:
-        this.chains = [];
-        this.nodes = [];
-        this._perimeter = null;
+        this.chains = []
+        this.nodes = []
+        this._perimeter = null
 
         this.id_vertex = 1
         this.id_chain = 1
         this.id_region = 1
+
+        this.fix_topology = true
+
+        this.external_region = null
     }
 
     toJSON() {
@@ -93,13 +105,17 @@ class Cluster {
                 const v = chain.vertices[i-1];
                 const w = chain.vertices[i];
 
-                const fx = (w.x-v.x)/r;
-                const fy = (w.y-v.y)/r;
+                const fx = (w.x-v.x)*r;
+                const fy = (w.y-v.y)*r;
 
-                v.force.x += fx;
-                v.force.y += fy;
-                w.force.x -= fx;
-                w.force.y -= fy;
+                if (i>1) {
+                    v.force.x += fx;
+                    v.force.y += fy;
+                } 
+                if (i<chain.vertices.length-1) {
+                    w.force.x -= fx;
+                    w.force.y -= fy;
+                }
             }
             
             // pressure
@@ -128,14 +144,14 @@ class Cluster {
         this.chains.forEach(chain => {
             const n = chain.vertices.length-1;
             const l = chain.length()
-            if (this.ds * (n+1) < l) {
+            if (n < 3 || this.ds * (n+1) < l) {
                 // add one more segment
                 const k = Math.floor(Math.random()*(n-1));
                 const v = chain.vertices[k]; // insert between this
                 const w = chain.vertices[k+1]; // and this
                 chain.vertices.splice(k+1, 0, new Vertex((v.x+w.x)/2, (v.y+w.y)/2));
             } else if (this.ds * (n-1) > l) {
-                if (l < this.ds && false) {
+                if (l < this.ds && !this.fix_topology) {
                     console.log("MERGE")
                     console.log(this.info())
                     dump({ n1: chain.vertex_start().signed_chains.length,
@@ -147,6 +163,7 @@ class Cluster {
                     console.log(this.info())
                     this.split_vertex(node)
                 } else if (n>3) {
+                    // remove a vertex
                     const k = Math.floor(Math.random()*(n-1));
                     chain.vertices.splice(k+1, 1);
                 }
@@ -155,13 +172,13 @@ class Cluster {
 
     }
 
-    evolve(dt) {
+    evolve() {
         this.regions.forEach(function(region){
             region.area_prev = region.area();
         });
 
         // move vertices along forces
-        this.each_vertex(vertex => vertex.evolve(dt));
+        this.each_vertex(vertex => vertex.evolve(this.dt));
 
         // move nodes on baricenter
         this.nodes.forEach(node => {
@@ -234,27 +251,76 @@ class Cluster {
         region.cluster = null
     }
 
-    remove_chain(chain) {
-        if (chain.vertex_start() === chain.vertex_end()) {
-            // regions are preserved
-            chain.signed_regions.forEach(([sign, region]) => {
-                signed_elements_remove(region.signed_chains, null, chain)
-            })
-            chain.signed_regions = []
-        } else {
-            // must destroy regions
-            chain.signed_regions.forEach(([sign, region]) => {
-                this.remove_region(region)
+    add_external_region() {
+        if (this.external_region === null) {
+            this.external_region = this.add_region(new Region(0.0))
+            this.chains.forEach(chain => {
+                const [left, right] = chain.regions_left_right()
+                if (left === null) this.external_region.add_chain(1, chain)
+                if (right === null) this.external_region.add_chain(-1, chain)
             })
         }
+        return this.external_region
+    }
+
+    remove_external_region() { 
+        if (this.external_region) {
+            this.remove_region(this.external_region)
+            this.external_region = null
+        }
+    }
+
+    remove_chain(chain) {
+        chain.signed_regions.forEach(([sign, region]) => {
+            signed_elements_remove(region.signed_chains, null, chain)
+        })
+        chain.signed_regions = []
         signed_elements_remove(chain.vertex_start().signed_chains, null, chain)
         signed_elements_remove(chain.vertex_end().signed_chains, null, chain)
         array_remove(this.chains, chain)
     }
 
     remove_vertex(v) {
-        v.signed_chains.forEach(([sign, chain]) => this.remove_chain(chain))
+        const signed_chains = v.signed_chains.slice() // copy
+        signed_chains.forEach(([sign, chain]) => this.remove_chain(chain))
         array_remove(this.nodes, v)
+    }
+
+    simplify_chains() {
+        // remove nodes of order 2
+        const nodes = this.nodes.filter(node => (
+            node.signed_chains.length === 2 
+            && node.signed_chains[0][1]!==node.signed_chains[1][1]))
+        nodes.forEach(node => {
+            let [sign0, chain0] = node.signed_chains[0]
+            let [sign1, chain1] = node.signed_chains[1]
+            if (chain0 === chain1) return // non si può eliminare
+            let vertices = chain0.vertices.slice() // copy vertices
+            if (sign0 > 0) vertices.reverse()
+            console.assert(last(vertices) === node)
+            vertices.pop()
+            if (sign1 > 0) {
+                vertices.push(...chain1.vertices)
+            } else {
+                // reverse
+                for (let i=chain1.vertices.length;i>0;) {
+                    --i
+                    vertices.push(chain1.vertices[i])
+                }
+            }
+            let chain = this.add_chain(new Chain(vertices))
+            chain0.signed_regions.forEach(([s,region]) => {
+                chain.signed_regions.push([-s*sign0, region])
+                region.signed_chains.push([-s*sign0, chain])
+            })
+            this.remove_vertex(node)
+        })
+    }
+
+    simplify_vertices() {
+        // remove isolated vertices
+        let nodes = this.nodes.filter(node => (node.signed_chains.length === 0)) // copy
+        nodes.forEach(node => this.remove_vertex(node))
     }
 
     pinch_vertices(vertex1, vertex2) {
@@ -270,6 +336,100 @@ class Cluster {
         }
         array_remove(this.nodes, vertex2)
         return vertex1
+    }
+
+    collapse_chain(chain) {
+        const [start, end] = chain.vertices_start_end()
+        if (start === end) {
+            this.remove_chain(chain)
+            this.simplify_vertices()
+            return null
+        }
+        const vertex = this.pinch_vertices(start, end)
+        this.remove_chain(chain)
+        return vertex
+    }
+
+    flip_chain(chain) {
+        // to fix the ideas suppose chain goes West to East
+        const [vertex_W, vertex_E] = chain.vertices_start_end()
+        if (vertex_W.signed_chains.length < 3 || vertex_E.signed_chains.length < 3) return null
+        if (chain.signed_regions.length !== 2) this.add_external_region()
+        if (chain.signed_regions.length !== 2) throw new Error("invalid topology")
+        const [region_N, region_S] = chain.regions_left_right()
+        const nw = region_N.signed_chain_next(-1, vertex_W)
+        const ne = region_N.signed_chain_next(1, vertex_E)
+        if (nw === null || ne === null) throw new Error("invalid topology")
+        const region_W = nw[1].region(-nw[0])
+        const region_E = ne[1].region(-ne[0]) 
+
+        // new chain will have the NW and NE regions
+        // (in case vertices have more than 3 regions)
+
+        // new vertices arbitrarily coincide with old ones
+        const vertex_N = this.add_vertex(new Vertex(vertex_W.x, vertex_W.y))
+        const vertex_S = this.pinch_vertices(vertex_E, vertex_W)
+        
+        // attach nw and ne to new vertex
+        nw[1].set_vertex(-nw[0], vertex_N)
+        ne[1].set_vertex(ne[0], vertex_N)
+
+        // flip chain
+        chain.set_vertex_start(vertex_N)
+        chain.set_vertex_end(vertex_S)
+
+        // remove old regions from chain
+        region_N.add_chain(-1, chain)
+        region_S.add_chain(1, chain)
+
+        // add new regions
+        if (region_W) region_W.add_chain(-1, chain)
+        if (region_E) region_E.add_chain(1, chain)
+
+        this.remove_external_region()
+
+        if (chain.signed_regions.length === 0) {
+            this.remove_chain(chain)
+            this.simplify_chains()
+            this.simplify_vertices()
+        }
+    }
+
+    split_region(region, chain) {
+        let area = region.area()
+        const [start, end] = chain.vertices_start_end()
+        let path = locate_path(region.signed_chains, end, start, 1)
+        path.push([1, chain])
+        if (path === null) throw new Error("invalid topology")
+
+        // choose smallest of two parts
+        let a = path_area(path) 
+        let sign =  a / area < 0.5 ? 1 : - 1 // SIC! Even when area < 0
+        let new_region = this.add_region(new Region())
+
+        if (sign < 0) {
+            path = locate_path(region.signed_chains, start, end, 1)
+            path.push([-1, chain])
+            if (path === null) throw new Error("invalid topology")    
+        }
+        
+        path.forEach(([s, chain]) => {
+            new_region.add_chain(s, chain)
+            region.add_chain(-s, chain)
+        })
+        
+        region.invalidate()
+        
+        // subdivide target_area proportionally
+        if (region.area_target > 0) {
+            let ratio = area / region.area_target
+            region.area_target = ratio * region.area()
+            new_region.area_target = ratio * new_region.area()
+        } else {
+            new_region.area_target = new_region.area()
+        }      
+
+        return new_region
     }
 
     split_vertex(vertex) {
@@ -338,6 +498,51 @@ class Cluster {
         })
     }
 
+    split_chain(chain, idx) {
+        // split the chain at vertex i
+        //
+        //      start >--- this ---> end
+        //
+        // return { chain1, node, chain2 }
+        //
+        // start >--- chain1 ---> node >--- chain2=this ---> end  
+
+        let node = chain.vertices[idx]
+        let start = chain.vertices[0]
+        this.nodes.push(node)
+        let vertices = chain.vertices.splice(0,idx) // cut first part
+        let chain2 = chain
+
+        if (start === chain.vertex_end() && start.signed_chains.length === 2) {
+            // chain is a closed detached loop. Instead of splitting 
+            // rotate node to be the single vertex
+
+            vertices.push(node) // duplicate node
+            chain.vertices.pop() // remove one copy of old start
+            chain.vertices.push(...vertices)
+            start.signed_chains = []
+            node.signed_chains = [[1, chain], [-1, chain]]
+            array_remove(this.nodes, start)
+            return node
+        }
+
+        signed_elements_remove(start.signed_chains, 1, chain)
+        node.signed_chains.push([1, chain]) 
+        vertices.push(node)
+        let chain1 = new Chain(vertices)
+        this.chains.push(chain1)
+
+        chain1.invalidate()
+        chain2.invalidate()
+
+        chain2.signed_regions.forEach(([sign, region]) => {
+            chain1.signed_regions.push([sign, region])
+            region.signed_chains.push([sign, chain1])
+        })
+
+        return node
+    }
+
     graft_chain(chain) {
         // 0. in case this is the first chain 
         // make a closed loop
@@ -346,133 +551,37 @@ class Cluster {
             this.pinch_vertices(chain.vertex_start(), chain.vertex_end())
             let area = chain.area()
             let sign = area > 0 ? 1 : -1  
-            let region = new Region()
-            region.cluster = this
-            region.signed_chains = [ [sign, chain] ]
-            chain.signed_regions.push([sign, region])
+            let region = this.add_region(new Region())
+            region.add_chain(sign, chain)
             region.area_target = Math.abs(area)
-            this.regions.push(region)
-            return
-        }
-
-        // 1. find the region we are in 
-        let region = null
-        let v = chain.vertices[Math.floor(chain.vertices.length/2)]
-        this.regions.some(r => {
-            if (region === null && r.is_inside(v)) {
-                region = r
-                return true
-            }
-        })
-
-        // utility function
-        function find_closest(chains, p) {
-            let dist = Infinity
-            let chain = null
-            let idx = null
-
-            chains.forEach(chain_ => {
-                for(let i=1; i<chain_.vertices.length-1; ++i) {
-                    const v = chain_.vertices[i]
-                    const d = vec_distance(v, p);
-                    if (d < dist) {
-                        dist = d
-                        chain = chain_
-                        idx = i 
-                    }
-                }
-            });
-            return {dist, chain, idx};
-        }
-
-        if (region === null) {
-            // subdivide external region
-
-            // 2. find the closest vertices to chain end-points
-            let chains = this.chains.filter(chain => chain.signed_regions.length>0)
-            let start = find_closest(chains, chain.vertex_start())
-
-            if (false && vec_distance(chain.vertex_start(),chain.vertex_end()) < start.dist) {
-                // close chain instead of merging
-                this.pinch_vertices(chain.vertex_start(), chain.vertex_end())
-                let region = new Region()
-                this.regions.push(region)
-                region.cluster = this
-                let sign = chain.area() > 0 ? 1 : -1
-                region.signed_chains.push([sign, chain])
-                chain.signed_regions.push([sign,region])
-                region.area_target = region.area()
-                return
-            }
-
-            // start = { dist, chain, idx }
-            start = start.chain.split(start.idx, this)
-            this.pinch_vertices(start, chain.vertex_start())
-
-            let end = find_closest(chains, chain.vertex_end())
-            // end = { dist, chain, idx }
-            end = end.chain.split(end.idx, this)
-            this.pinch_vertices(end, chain.vertex_end())
-
-            // 3. find the external region
-            let signed_chains = this.chains
-                .filter(chain => (chain.signed_regions.length === 1))
-                .map(chain => ([ -chain.signed_regions[0][0], chain ]))
-
-            // console.log(this.info())
-            let path1 = locate_path(signed_chains, end, start, 1)
-            // dump({path1})
-            let path2 = locate_path(signed_chains, end, start, -1)
-            // dump({path2})
-            if ( path1 !== null && path2 !== null) {
-                let area = chain.area()
-                let area1 = path_area(path1)
-                let area2 = path_area(path2) 
-                if (Math.abs(area1+area) > Math.abs(area2+area)) {
-                    // chose path2
-                    path1 = path2
-                }
-            } else if (path1 === null && path2 !== null) {
-                path1 = path2
-            } else {
-                console.log(this.info())
-                console.log("CANNOT LOCATE EXTERNAL PATH")
-                return
-            }
-
-            path1.push([1, chain])
-            
-            let area = path_area(path1)
-
-            if (area<0) {
-                // revert path
-                path1 = path1.map(([sign, chain]) => ([-sign, chain]))
-            }
-            let region = new Region()
-            region.cluster = this
-            this.regions.push(region)
-            region.area_target = Math.abs(area)
-            region.signed_chains = path1
-            path1.forEach(([sign, chain]) => {
-                chain.signed_regions.push([sign, region])
-            })
             return region
         } else {
+            // 1. find the region we are in 
+            const v = chain.vertices[Math.floor(chain.vertices.length/2)]
+            const region = some(this.regions,r => {if (r.is_inside(v)) return r}) 
+                || this.add_external_region() 
+
             // subdivide region
 
             // 2. find the closest vertices to chain end-points
             let chains = region.signed_chains.map(([sign, chain]) => chain)
-            let start = find_closest(chains, chain.vertex_start())
+            let start = find_closest_chain(chains, chain.vertex_start())
             // start = { dist, chain, idx }
-            start = start.chain.split(start.idx, this)
+            start = this.split_chain(start.chain, start.idx)
             this.pinch_vertices(start, chain.vertex_start())
 
-            let end = find_closest(chains, chain.vertex_end())
+            // compute chains again...
+            chains = region.signed_chains.map(([sign, chain]) => chain)
+            let end = find_closest_chain(chains, chain.vertex_end())
             // end = { dist, chain, idx }
-            end = end.chain.split(end.idx, this)
+            end = this.split_chain(end.chain,end.idx)
             this.pinch_vertices(end, chain.vertex_end())
-
-            return region.split(chain)
+            const new_region = this.split_region(region, chain)
+            if (region === this.external_region) {
+                new_region.area_target = new_region.area()
+            }
+            this.remove_external_region()
+            return new_region
         }
     }
 
@@ -497,6 +606,23 @@ class Cluster {
             `  ${region.id} chains: ${join(region.signed_chains)}`
         ))
         return info.join("\n")
+    }
+
+    json() {
+        const nodes = this.nodes.map(v => [round(v.x),round(v.x)])
+        const chains = this.chains.map(chain => {
+            const start = this.nodes.indexOf(chain.vertex_start())
+            const end = this.nodes.indexOf(chain.vertex_end())
+            const vertices = chain.vertices.slice(1,-1).map(
+                v => [round(v.x),round(v.y)])
+            return { start, end, vertices }
+            })
+        const regions = this.regions.map(region => {
+            const chains = region.signed_chains.map(([s,c]) => s*(1+this.chains.indexOf(c)))
+            const area_target = round(region.area_target)
+            return { area_target, chains }
+            })
+        return { nodes, chains, regions }
     }
 
 }

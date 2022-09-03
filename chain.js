@@ -1,4 +1,11 @@
-class Chain {
+/**
+ * Copyright 2021, 2022 Emanuele Paolini (emanuele.paolini@unipi.it)
+ * This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ * You should have received a copy of the GNU General Public License along with this program. If not, see <https://www.gnu.org/licenses/>.
+ **/
+
+ class Chain {
     constructor(vertices) {
         console.assert(vertices.length >= 2)
         this.vertices = vertices
@@ -65,6 +72,50 @@ class Chain {
 
     vertex_end() { return this.vertices[this.vertices.length-1] }
 
+    node(sign) { return sign > 0 ? this.vertex_end() : this.vertex_start() }
+
+    vertices_start_end() { return [ this.vertex_start(), this.vertex_end() ]}
+
+    set_vertex_end(vertex) {
+        const end = this.vertices.pop()
+        signed_elements_remove(end.signed_chains, -1, this)
+        this.vertices.push(vertex)
+        vertex.signed_chains.push([-1, this])
+    }
+
+    set_vertex_start(vertex) {
+        const start = this.vertices[0]
+        signed_elements_remove(start.signed_chains, 1, this)
+        this.vertices[0] = vertex
+        vertex.signed_chains.push([1, this])
+    }
+
+    set_vertex(sign, vertex) {
+        if (sign > 0) this.set_vertex_start(vertex)
+        else this.set_vertex_end(vertex)
+    }
+
+    region(sign) {
+        const n = this.signed_regions.length
+        if (n>2) throw new Error("invalid topology")
+        if (n==0) return null
+        if (n==1) {
+            const [s,region] = this.signed_regions[0]
+            if (s!==sign) return null
+            return region
+        } 
+        // n==2
+        const [[s0,region0],[s1,region1]] = this.signed_regions
+        if (s0*s1>=0) throw new Error("invalid topology")
+        return s0 === sign ? region0 : region1
+    }
+
+    region_left() { return this.region(1) }
+
+    region_right() { return this.region(-1) }
+
+    regions_left_right() { return [this.region(1), this.region(-1)] }
+
     adjacent_node(sign) {
         return sign>0 ? this.vertices[1] : this.vertices[this.vertices.length-2]
     }
@@ -81,8 +132,6 @@ class Chain {
     angle_node(sign) {
         return sign>0 ? this.angle_start() : this.angle_end()
     }
-
-    node(sign) { return sign > 0 ? this.vertex_end() : this.vertex_start() }
 
     intersection_count(p) {
         // p: Vec
@@ -104,56 +153,5 @@ class Chain {
         }
         return count;
     }
-
-    has_negative_region() {
-        this.signed_regions.forEach(([sign, region]) => {
-            if (sign < 0) return true
-        })
-        return false
-    }
-
-    split(i, cluster) {
-        // split the chain at vertex i
-        //
-        //      start >--- this ---> end
-        //
-        // return { chain1, node, chain2 }
-        //
-        // start >--- chain1 ---> node >--- chain2=this ---> end  
-
-        let start = this.vertices[0]
-        let node = this.vertices[i]
-        cluster.nodes.push(node)
-        let vertices = this.vertices.splice(0,i) // cut first part
-        let chain2 = this
-
-        if (start === this.vertex_end() && start.signed_chains.length === 2) {
-            // this is a closed detached loop. Instead of splitting 
-            // rotate node to be the single vertex
-
-            vertices.push(node) // duplicate node
-            this.vertices.pop() // remove one copy of old start
-            this.vertices.push(...vertices)
-            start.signed_chains = []
-            node.signed_chains = [[1, this], [-1, this]]
-            array_remove(cluster.nodes, start)
-            return node
-        }
-
-        signed_elements_remove(start.signed_chains, 1, this)
-        node.signed_chains.push([1, this]) 
-        vertices.push(node)
-        let chain1 = new Chain(vertices)
-        cluster.chains.push(chain1)
-
-        chain1.invalidate()
-        chain2.invalidate()
-
-        chain2.signed_regions.forEach(([sign, region]) => {
-            chain1.signed_regions.push([sign, region])
-            region.signed_chains.push([sign, chain1])
-        })
-
-        return node
-    }
 }
+
