@@ -241,26 +241,55 @@ class Cluster {
     }
 
     remove_chain(chain) {
-        if (chain.vertex_start() === chain.vertex_end()) {
-            // regions are preserved
-            chain.signed_regions.forEach(([sign, region]) => {
-                signed_elements_remove(region.signed_chains, null, chain)
-            })
-            chain.signed_regions = []
-        } else {
-            // must destroy regions
-            chain.signed_regions.forEach(([sign, region]) => {
-                this.remove_region(region)
-            })
-        }
+        chain.signed_regions.forEach(([sign, region]) => {
+            signed_elements_remove(region.signed_chains, null, chain)
+        })
+        chain.signed_regions = []
         signed_elements_remove(chain.vertex_start().signed_chains, null, chain)
         signed_elements_remove(chain.vertex_end().signed_chains, null, chain)
         array_remove(this.chains, chain)
     }
 
     remove_vertex(v) {
-        v.signed_chains.forEach(([sign, chain]) => this.remove_chain(chain))
+        const signed_chains = v.signed_chains.slice() // copy
+        signed_chains.forEach(([sign, chain]) => this.remove_chain(chain))
         array_remove(this.nodes, v)
+    }
+
+    simplify_chains() {
+        // remove nodes of order 2
+        const nodes = this.nodes.filter(node => (
+            node.signed_chains.length === 2 
+            && node.signed_chains[0][1]!==node.signed_chains[1][1]))
+        nodes.forEach(node => {
+            let [sign0, chain0] = node.signed_chains[0]
+            let [sign1, chain1] = node.signed_chains[1]
+            if (chain0 === chain1) return // non si può eliminare
+            let vertices = chain0.vertices.slice() // copy vertices
+            if (sign0 > 0) vertices.reverse()
+            console.assert(last(vertices) === node)
+            vertices.pop()
+            if (sign1 > 0) {
+                vertices.push(...chain1.vertices)
+            } else {
+                // reverse
+                for (let i=chain1.vertices.length;i>0;) {
+                    --i
+                    vertices.push(chain1.vertices[i])
+                }
+            }
+            let chain = this.add_chain(new Chain(vertices))
+            chain0.signed_regions.forEach(([s,region]) => {
+                chain.signed_regions.push([-s*sign0, region])
+                region.signed_chains.push([-s*sign0, chain])
+            })
+            this.remove_vertex(node)
+        })
+    }
+
+    simplify_vertices() {
+        let nodes = this.nodes.filter(node => (node.signed_chains.length === 0)) // copy
+        nodes.forEach(node => this.remove_vertex(node))
     }
 
     pinch_vertices(vertex1, vertex2) {
@@ -371,32 +400,12 @@ class Cluster {
             }
         })
 
-        // utility function
-        function find_closest(chains, p) {
-            let dist = Infinity
-            let chain = null
-            let idx = null
-
-            chains.forEach(chain_ => {
-                for(let i=1; i<chain_.vertices.length-1; ++i) {
-                    const v = chain_.vertices[i]
-                    const d = vec_distance(v, p);
-                    if (d < dist) {
-                        dist = d
-                        chain = chain_
-                        idx = i 
-                    }
-                }
-            });
-            return {dist, chain, idx};
-        }
-
         if (region === null) {
             // subdivide external region
 
             // 2. find the closest vertices to chain end-points
             let chains = this.chains.filter(chain => chain.signed_regions.length>0)
-            let start = find_closest(chains, chain.vertex_start())
+            let start = find_closest_chain(chains, chain.vertex_start())
 
             if (false && vec_distance(chain.vertex_start(),chain.vertex_end()) < start.dist) {
                 // close chain instead of merging
@@ -415,7 +424,7 @@ class Cluster {
             start = start.chain.split(start.idx, this)
             this.pinch_vertices(start, chain.vertex_start())
 
-            let end = find_closest(chains, chain.vertex_end())
+            let end = find_closest_chain(chains, chain.vertex_end())
             // end = { dist, chain, idx }
             end = end.chain.split(end.idx, this)
             this.pinch_vertices(end, chain.vertex_end())
@@ -468,12 +477,12 @@ class Cluster {
 
             // 2. find the closest vertices to chain end-points
             let chains = region.signed_chains.map(([sign, chain]) => chain)
-            let start = find_closest(chains, chain.vertex_start())
+            let start = find_closest_chain(chains, chain.vertex_start())
             // start = { dist, chain, idx }
             start = start.chain.split(start.idx, this)
             this.pinch_vertices(start, chain.vertex_start())
 
-            let end = find_closest(chains, chain.vertex_end())
+            let end = find_closest_chain(chains, chain.vertex_end())
             // end = { dist, chain, idx }
             end = end.chain.split(end.idx, this)
             this.pinch_vertices(end, chain.vertex_end())

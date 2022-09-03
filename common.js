@@ -6,6 +6,10 @@ function dump(x) {
     console.log(str(x))
 }
 
+function last(array) {
+    return array[array.length - 1]
+}
+
 function array_remove(array, item) {
     for (let i=array.length; i>0;) {
         i--
@@ -25,6 +29,26 @@ function signed_elements_remove(array, sign, element) {
             array.splice(i, 1)
         }
     }
+}
+
+// utility function
+function find_closest_chain(chains, p) {
+    let dist = Infinity
+    let chain = null
+    let idx = null
+
+    chains.forEach(chain_ => {
+        for(let i=1; i<chain_.vertices.length-1; ++i) {
+            const v = chain_.vertices[i]
+            const d = vec_distance(v, p);
+            if (d < dist) {
+                dist = d
+                chain = chain_
+                idx = i 
+            }
+        }
+    });
+    return {dist, chain, idx};
 }
 
 function locate_path(signed_chains, start, end, sign, remove) {
