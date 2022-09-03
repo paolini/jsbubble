@@ -1,20 +1,9 @@
-function path_area(signed_chains) {
-    let area = 0.0
-    signed_chains.forEach( ([sign, chain]) => {
-            area += sign * chain.area()
-    })
-    return area
-}
-
-
 class Region {
     constructor(area_target=1.0) {
         this.signed_chains = [] // [sign, chain]
-
-        this.area_target = area_target;
-        
-        this.pressure = 1.0;  // hint pressure
-        this.cluster = null;
+        this.area_target = area_target
+        this.pressure = 1.0  // hint pressure
+        this.cluster = null
         this.invalidate()
     }
     
@@ -92,69 +81,38 @@ class Region {
     }
 
     split(chain) {
-        //
-        // create new region by splitting this with chain
-        // chain must be already be in the cluster
-        // and have end-points on vertices of this region
-        //
-        //           end
-        //  ,----<----.----<---.
-        //  |                  |
-        //  |    this          |
-        //  |                  |
-        //  `--->-----.---->---'
-        //          start
-        //
-        //           end
-        //  ,----<----,----<-----.
-        //  |         |          |
-        //  |         ^chain     |
-        //  | region  | this     |
-        //  `--->-----'---->-----'
-        //          start
+        let area = this.area()
+        const [start, end] = chain.vertices_start_end()
+        let path = locate_path(this.signed_chains, end, start, 1)
+        path.push([1, chain])
+        if (path === null) throw new Error("invalid topology")
 
-        // for later use
-        let old_area = this.area()
+        // choose smallest of two parts
+        let a = path_area(path) 
+        let sign =  a / area < 0.5 ? 1 : - 1 // SIC! Even when area < 0
+        let region = this.cluster.add_region(new Region())
 
-        // find cycle along region chains from start to end
-        // move chains of cycle from this to new region
-        let start = chain.vertex_end()
-        let end = chain.vertex_start()
-        let path = locate_path(this.signed_chains, start, end, 1)
-        if (path === null) return null
-
-        let region = new Region()
-        region.cluster = this.cluster
-        this.cluster.regions.push(region)
-
-
-        path.forEach(([sign, chain]) => {
-            signed_elements_remove(this.signed_chains, sign, chain)
-            region.signed_chains.push([sign, chain])
-
-            chain.signed_regions = chain.signed_regions
-            .map(([ s, r ]) => {
-                if (r === this) {
-                    // assign chain to new region
-                    return [ s, region ]
-                } else {
-                    return [ s, r ]
-                }
-            })    
+        if (sign < 0) {
+            path = locate_path(this.signed_chains, start, end, 1)
+            path.push([-1, chain])
+            if (path === null) throw new Error("invalid topology")    
+        }
+        
+        path.forEach(([s, chain]) => {
+            region.add_chain(s, chain)
+            this.add_chain(-s, chain)
         })
-
-        // insert chain to both regions
-        region.signed_chains.push([1, chain])
-        chain.signed_regions.push([1, region])
-        this.signed_chains.push([-1, chain])
-        chain.signed_regions.push([-1, this])
-
+        
         this.invalidate()
-
+        
         // subdivide target_area proportionally
-        let ratio = old_area / this.area_target
-        this.area_target = ratio * this.area()
-        region.area_target = ratio * region.area()
+        if (this.area_target > 0) {
+            let ratio = area / this.area_target
+            this.area_target = ratio * this.area()
+            region.area_target = ratio * region.area()
+        } else {
+            region.area_target = region.area()
+        }      
 
         return region
     }

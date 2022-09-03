@@ -54,7 +54,6 @@ function signed_elements_remove(array, sign, element) {
     }
 }
 
-// utility function
 function find_closest_chain(chains, p) {
     let dist = Infinity
     let chain = null
@@ -99,5 +98,13 @@ function locate_path(signed_chains, start, end, sign, remove) {
         v = next
     }
     return path
+}
+
+function path_area(signed_chains) {
+    let area = 0.0
+    signed_chains.forEach( ([sign, chain]) => {
+            area += sign * chain.area()
+    })
+    return area
 }
 

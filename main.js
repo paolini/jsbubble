@@ -21,8 +21,8 @@ class Main {
             fix_topology: true,
             fill_regions: false,
             region_colors: [
-                "#a008", "#0808", "#8808", "#0088", "#8088", "#0888",
-                "#ccc8", "#cdc8", "#acf8", "#ffe8", "#aaa8", "#8888", 
+                "#a008", "#0808", "#8808", "#cdc8", "#0088", "#8088", 
+                "#ffe8", "#0888", "#ccc8", "#acf8", "#aaa8", "#8888", 
                 "#f008", "#0f08", "#ff08", "#00f8", "#f0f8", "#0ff8"],
             initial_message: "",
             show_buttons: true,
@@ -49,10 +49,11 @@ class Main {
         this.new_vertices = null;
 
         function on_mouse_down(evt) {
-            if (this.selected_tool === "pop") {
+            if (this.selected_tool === "remove") {
                 const p = new Vec(...this.myctx.getCursorPosition(evt))
                 let region = this.cluster.region_containing(p)
                 let { chain } = find_closest_chain(this.cluster.chains, p)
+                if (chain === null) return
                 if (region === null && chain && chain.signed_regions.length > 0) {
                     region = chain.signed_regions[0][1]
                 }
@@ -79,7 +80,13 @@ class Main {
             } else if (this.selected_tool === "flip") {
                 const p = new Vec(...this.myctx.getCursorPosition(evt))
                 let { chain } = find_closest_chain(this.cluster.chains, p)
+                if (chain === null) return
                 this.cluster.flip_chain(chain)
+            } else if (this.selected_tool === "collapse") {
+                const p = new Vec(...this.myctx.getCursorPosition(evt))
+                let { chain } = find_closest_chain(this.cluster.chains, p)
+                if (chain === null) return
+                this.cluster.collapse_chain(chain)
             }
         }
 
@@ -244,8 +251,9 @@ class Main {
             "draw": (this.cluster.regions.length === 0 
                 ? "Draw a closed curve" 
                 : "Draw a line joining two boundary points"),
-            "pop": "Pop a bubble",
-            "flip": "Flip an edge"
+            "remove": "Remove an edge",
+            "flip": "Flip an edge",
+            "collapse": "shrink an edge"
         }
         let $select = $elem("select")
         this.$div.append($select)
