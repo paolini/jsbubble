@@ -24,6 +24,11 @@ class Main {
                 "#a008", "#0808", "#8808", "#0088", "#8088", "#0888",
                 "#ccc8", "#cdc8", "#acf8", "#ffe8", "#aaa8", "#8888", 
                 "#f008", "#0f08", "#ff08", "#00f8", "#f0f8", "#0ff8"],
+            initial_message: "",
+            write_instructions: true,
+            show_buttons: true,
+            show_measures: true,
+            show_options: true,
             ...options
         }
 
@@ -73,6 +78,13 @@ class Main {
     plot() {
         const ctx = this.myctx
         ctx.background(this.options.bg_color)
+
+        if (this.cluster.chains.length === 0) {
+            ctx.setFillColor(this.options.stroke_color)
+            ctx.ctx.textAlign = "center"
+            ctx.ctx.font = "20px Arial"
+            ctx.fillText(this.options.initial_message,0,0)
+        }
 
         if (this.options.fill_regions) {
             const colors = this.options.region_colors
@@ -186,56 +198,81 @@ class Main {
     }
 
     populate_html() {
+        const self = this
         this.$div.empty();
-        // if (this.custom) this.$div.hide();
-        let $button = $elem("button");
-        const set_button_text = () => {
-            $button.text(this.loop?"stop":"start");
-        };
-        set_button_text();
-        $button.click(() => {
-            this.loop = !this.loop;
-            set_button_text();
-            if (this.loop) this.update();
-        });
-        this.$div.append($button);
-        this.$div.append($elem("button").text("step").click(() => {
-            this.loop = 0; 
-            set_button_text();
-            this.update();
-        }));
-        this.$div.append($elem("button").text("reset").click(() => {
-            this.cluster = new Cluster();
-        }));
-        this.$div.append($elem("p").attr("id", "perimeter"));
-        var $table = $elem("table");
-        $table.append($elem("tr")
-            .append($elem("th").attr('style', 'width: 2em').text("region"))
-            .append($elem("th").attr('style', 'width: 5em').text("area"))
-            .append($elem("th").attr('style', 'width: 5em').text("target"))
-            .append($elem("th").attr('style', 'width: 5em').text(""))
-            .append($elem("th").attr('style', 'width: 5em').text("perimeter")));
-        this.cluster.regions.forEach((region,i) => {
-            const colors = this.options.region_colors
-            let $input = $elem("input")
-                .attr("id", "target_" + i)
-                .attr("value", region.target_area)
-                .attr("size", 5).change((event) => {
-                let target = parseFloat(event.target.value);
-                region.area_target = target; 
-            });
-            const paint=(el, i)=>{
-                if (this.options.fill_regions) return el.css("background-color",colors[i % colors.length])
-                else return el
+
+        if (this.options.write_instructions) {
+            let text = "Draw a closed curve..."
+            if (this.cluster.chains.length > 0) {
+                text = "Draw a line joining two edges"
             }
+            this.$div.append($elem("p").append($elem("b").text(text)))
+        }
+
+        // if (this.custom) this.$div.hide();
+        if (this.options.show_buttons) {
+            let $button = $elem("button");
+            const set_button_text = () => {
+                $button.text(this.loop?"pause":"continue");
+            };
+            set_button_text();
+            $button.click(() => {
+                this.loop = !this.loop;
+                set_button_text();
+                if (this.loop) this.update();
+            });
+            this.$div.append($button);
+            this.$div.append($elem("button").text("step").click(() => {
+                this.loop = 0; 
+                set_button_text();
+                this.update();
+            }));
+            this.$div.append($elem("button").text("reset").click(() => {
+                this.cluster = new Cluster();
+            }));
+        }
+        if (this.options.show_options) {
+            this.$div
+                .append($elem("input")
+                    .attr("type", "checkbox")
+                    .prop("checked", this.options.fill_regions)
+                    .change(function() { 
+                        self.options.fill_regions = $(this).prop("checked")
+                        self.n_regions = null // force redraw
+                    }))
+                .append($elem("span").text("fill regions"))
+        }
+        if (this.options.show_measures && this.cluster.regions.length > 0) {
+            this.$div.append($elem("p").attr("id", "perimeter"));
+            var $table = $elem("table");
             $table.append($elem("tr")
-                .append(paint($elem("td").text(i),i))
-                .append($elem("td").attr("id", "area_" + i))
-                .append($elem("td").append($input))
-                .append($elem("td").attr("id", "pressure_" + i))
-                .append($elem("td").attr("id", "perimeter_" + i)));
-        });
-        this.$div.append($table);
+                .append($elem("th").attr('style', 'width: 2em').text("region"))
+                .append($elem("th").attr('style', 'width: 5em').text("area"))
+                .append($elem("th").attr('style', 'width: 5em').text("target"))
+                .append($elem("th").attr('style', 'width: 5em').text(""))
+                .append($elem("th").attr('style', 'width: 5em').text("perimeter")));
+            this.cluster.regions.forEach((region,i) => {
+                const colors = this.options.region_colors
+                let $input = $elem("input")
+                    .attr("id", "target_" + i)
+                    .attr("value", region.target_area)
+                    .attr("size", 5).change((event) => {
+                    let target = parseFloat(event.target.value);
+                    region.area_target = target; 
+                });
+                const paint=(el, i)=>{
+                    if (this.options.fill_regions) return el.css("background-color",colors[i % colors.length])
+                    else return el
+                }
+                $table.append($elem("tr")
+                    .append(paint($elem("td").text(i),i))
+                    .append($elem("td").attr("id", "area_" + i))
+                    .append($elem("td").append($input))
+                    .append($elem("td").attr("id", "pressure_" + i))
+                    .append($elem("td").attr("id", "perimeter_" + i)));
+            });
+            this.$div.append($table);
+        }
         this.update_html();
     }
 
