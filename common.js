@@ -19,6 +19,29 @@ function array_remove(array, item) {
     }
 }
 
+function some(array, f) {
+    for (let i=0; i<array.length; ++i) {
+        const r = f(array[i], i, array)
+        if (r) return r
+    }
+    return null
+}
+
+function signed_elements_add(signed_elements, sign, element) {
+    for(let i=0; i<signed_elements.length; ++i) {
+        if (signed_elements[i][1] === element) {
+            signed_elements[i][0] += sign
+            if (signed_elements[i][0] === 0) {
+                signed_elements.splice(i,1)
+                return 0
+            }
+            return signed_elements[i][0]
+        }
+    }
+    signed_elements.push([sign, element])
+    return sign
+}
+
 function signed_elements_remove(array, sign, element) {
     if (!element) {
         throw new Error("element required")
@@ -77,3 +100,4 @@ function locate_path(signed_chains, start, end, sign, remove) {
     }
     return path
 }
+

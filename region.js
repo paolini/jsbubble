@@ -76,6 +76,21 @@ class Region {
         this.signed_chains = []
     }
 
+    add_chain(sign, chain) {
+        signed_elements_add(this.signed_chains, sign, chain)
+        signed_elements_add(chain.signed_regions, sign, this)
+    }
+
+    signed_chain_next(sign, vertex) {
+        // return next sign on boundary of this in direction 
+        // sign>0 counterclockwise, sign<0 clockwise
+        // returned sign is the orientation of the chain in the region
+        return some(vertex.signed_chains, ([s,chain]) => 
+                some(chain.signed_regions, ([ss, r]) => {
+                    if (r === this && s*ss*sign >=0) return [ss, chain]
+                }))
+    }
+
     split(chain) {
         //
         // create new region by splitting this with chain

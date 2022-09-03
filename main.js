@@ -76,6 +76,10 @@ class Main {
                 if (chain) this.cluster.remove_chain(chain)
                 this.cluster.simplify_chains()
                 this.cluster.simplify_vertices()
+            } else if (this.selected_tool === "flip") {
+                const p = new Vec(...this.myctx.getCursorPosition(evt))
+                let { chain } = find_closest_chain(this.cluster.chains, p)
+                this.cluster.flip_chain(chain)
             }
         }
 
@@ -240,7 +244,8 @@ class Main {
             "draw": (this.cluster.regions.length === 0 
                 ? "Draw a closed curve" 
                 : "Draw a line joining two boundary points"),
-            "pop": "Pop a bubble"
+            "pop": "Pop a bubble",
+            "flip": "Flip an edge"
         }
         let $select = $elem("select")
         this.$div.append($select)

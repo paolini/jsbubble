@@ -65,6 +65,50 @@ class Chain {
 
     vertex_end() { return this.vertices[this.vertices.length-1] }
 
+    node(sign) { return sign > 0 ? this.vertex_end() : this.vertex_start() }
+
+    vertices_start_end() { return [ this.vertex_start(), this.vertex_end() ]}
+
+    set_vertex_end(vertex) {
+        const end = this.vertices.pop()
+        signed_elements_remove(end.signed_chains, -1, this)
+        this.vertices.push(vertex)
+        vertex.signed_chains.push([-1, this])
+    }
+
+    set_vertex_start(vertex) {
+        const start = this.vertices[0]
+        signed_elements_remove(start.signed_chains, 1, this)
+        this.vertices[0] = vertex
+        vertex.signed_chains.push([1, this])
+    }
+
+    set_vertex(sign, vertex) {
+        if (sign > 0) this.set_vertex_start(vertex)
+        else this.set_vertex_end(vertex)
+    }
+
+    region(sign) {
+        const n = this.signed_regions.length
+        if (n>2) throw new Error("invalid topology")
+        if (n==0) return null
+        if (n==1) {
+            const [s,region] = this.signed_regions[0]
+            if (s!==sign) return null
+            return region
+        } 
+        // n==2
+        const [[s0,region0],[s1,region1]] = this.signed_regions
+        if (s0*s1>=0) throw new Error("invalid topology")
+        return s0 === sign ? region0 : region1
+    }
+
+    region_left() { return this.region(1) }
+
+    region_right() { return this.region(-1) }
+
+    regions_left_right() { return [this.region(1), this.region(-1)] }
+
     adjacent_node(sign) {
         return sign>0 ? this.vertices[1] : this.vertices[this.vertices.length-2]
     }
@@ -81,8 +125,6 @@ class Chain {
     angle_node(sign) {
         return sign>0 ? this.angle_start() : this.angle_end()
     }
-
-    node(sign) { return sign > 0 ? this.vertex_end() : this.vertex_start() }
 
     intersection_count(p) {
         // p: Vec

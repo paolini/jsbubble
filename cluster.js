@@ -234,6 +234,16 @@ class Cluster {
         return region
     }
 
+    add_external_region() {
+        let region = this.add_region(new Region())
+        this.chains.forEach(chain => {
+            const [left, right] = chain.regions_left_right()
+            if (left === null) region.add_chain(1, chain)
+            if (right === null) region.add_chain(-1, chain)
+        })
+        return region
+    }
+
     remove_region(region) {
         region.clear()
         array_remove(this.regions, region)
@@ -305,6 +315,45 @@ class Cluster {
         }
         array_remove(this.nodes, vertex2)
         return vertex1
+    }
+
+    flip_chain(chain) {
+        // to fix the ideas suppose chain goes West to East
+        const [vertex_W, vertex_E] = chain.vertices_start_end()
+        if (vertex_W.signed_chains.length < 3 || vertex_E.signed_chains.length < 3) throw new Error("invalid topology")
+        let external_region = null
+        if (chain.signed_regions.length !== 2) external_region = this.add_external_region()
+        if (chain.signed_regions.length !== 2) throw new Error("invalid topology")
+        const [region_N, region_S] = chain.regions_left_right()
+        const nw = region_N.signed_chain_next(-1, vertex_W)
+        const ne = region_N.signed_chain_next(1, vertex_E)
+        if (nw === null || ne === null) throw new Error("invalid topology")
+        const region_W = nw[1].region(-nw[0])
+        const region_E = ne[1].region(-ne[0]) 
+
+        // new chain will have the NW and NE regions
+        // (in case vertices have more than 3 regions)
+
+        // new vertices arbitrarily coincide with old ones
+        const vertex_N = this.add_vertex(new Vertex(vertex_W.x, vertex_W.y))
+        const vertex_S = this.pinch_vertices(vertex_E, vertex_W)
+        
+        // attach nw and ne to new vertex
+        nw[1].set_vertex(-nw[0], vertex_N)
+        ne[1].set_vertex(ne[0], vertex_N)
+
+        // flip chain
+        chain.set_vertex_start(vertex_N)
+        chain.set_vertex_end(vertex_S)
+
+        // remove old regions from chain
+        region_N.add_chain(-1, chain)
+        region_S.add_chain(1, chain)
+
+        // add new regions
+        if (region_W) region_W.add_chain(-1, chain)
+        if (region_E) region_E.add_chain(1, chain)
+        if (external_region) this.remove_region(external_region)
     }
 
     split_vertex(vertex) {
