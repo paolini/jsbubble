@@ -571,14 +571,14 @@ class Cluster {
 
             // 2. find the closest vertices to chain end-points
             let chains = region.signed_chains.map(([sign, chain]) => chain)
-            let start = find_closest_chain(chains, chain.vertex_start())
+            let start = find_closest_vertex(chains, chain.vertex_start())
             // start = { dist, chain, idx }
             start = this.split_chain(start.chain, start.idx)
             this.pinch_vertices(start, chain.vertex_start())
 
             // compute chains again...
             chains = region.signed_chains.map(([sign, chain]) => chain)
-            let end = find_closest_chain(chains, chain.vertex_end())
+            let end = find_closest_vertex(chains, chain.vertex_end())
             // end = { dist, chain, idx }
             end = this.split_chain(end.chain,end.idx)
             this.pinch_vertices(end, chain.vertex_end())

@@ -68,12 +68,19 @@ class Main {
 
         function on_mouse_down(evt) {
             const p = new Vec(...this.myctx.getCursorPosition(evt))
-            if (this.selected_tool === "remove") {
-                this.command_remove(p)
-            } else if (this.selected_tool === "flip") {
-                this.command_flip(p)
-            } else if (this.selected_tool === "collapse") {
-                this.command_collapse(p)
+            switch(this.selected_tool) {
+                case "remove":
+                    this.command_remove(p)
+                    break
+                case "flip":
+                    this.command_flip(p)
+                    break
+                case "collapse":
+                    this.command_collapse(p)
+                    break
+                case "split":
+                    this.command_split(p)
+                    break
             }
             if (!this.loop) this.draw()
         }
@@ -229,7 +236,8 @@ class Main {
                 : "Draw a line joining two boundary points"),
             "remove": "Remove an edge",
             "flip": "Flip an edge",
-            "collapse": "shrink an edge"
+            "collapse": "Shrink an edge",
+            "split": "Split a vertex"
         }
         let $select = $elem("select")
         $div.append($select)
@@ -391,14 +399,14 @@ class Main {
 
     command_flip(p) {
         this.record(`main.command_flip(new Vec(${p.x},${p.y}))`)
-        let { chain } = find_closest_chain(this.cluster.chains, p)
+        let chain = find_closest_chain(this.cluster.chains, p)
         if (chain === null) return
         this.cluster.flip_chain(chain)
     }
 
     command_collapse(p) {
         this.record(`main.command_collapse(new Vec(${p.x},${p.y}))`)
-        let { chain } = find_closest_chain(this.cluster.chains, p)
+        let chain = find_closest_chain(this.cluster.chains, p)
         if (chain === null) return
         this.cluster.collapse_chain(chain)
     }
@@ -406,7 +414,7 @@ class Main {
     command_remove(p) {
         this.record(`main.command_remove(new Vec(${p.x},${p.y}))`)
         let region = this.cluster.region_containing(p)
-        let { chain } = find_closest_chain(this.cluster.chains, p)
+        let chain = find_closest_chain(this.cluster.chains, p)
         if (chain === null) return
         if (region === null && chain && chain.signed_regions.length > 0) {
             region = chain.signed_regions[0][1]

@@ -77,7 +77,7 @@ function signed_elements_remove(array, sign, element) {
     }
 }
 
-function find_closest_chain(chains, p) {
+function find_closest_vertex(chains, p) {
     let dist = Infinity
     let chain = null
     let idx = null
@@ -92,8 +92,23 @@ function find_closest_chain(chains, p) {
                 idx = i 
             }
         }
-    });
-    return {dist, chain, idx};
+    })
+    return {dist, chain, idx}
+}
+
+function find_closest_chain(chains, p) {
+    let dist = Infinity
+    let chain = null
+
+    chains.forEach(chain_ => {
+        const v = chain_.vertices[Math.floor(chain_.vertices.length/2)]
+        const d = vec_distance(v, p);
+        if (d < dist) {
+            dist = d
+            chain = chain_
+        }
+    })
+    return chain
 }
 
 function locate_path(signed_chains, start, end, sign, remove) {
