@@ -107,11 +107,11 @@ class Cluster {
                 const fx = (w.x-v.x)*r;
                 const fy = (w.y-v.y)*r;
 
-                if (i>1) {
+                if (i>0) {
                     v.force.x += fx;
                     v.force.y += fy;
                 } 
-                if (i<chain.vertices.length-1) {
+                if (i<chain.vertices.length) {
                     w.force.x -= fx;
                     w.force.y -= fy;
                 }
@@ -179,6 +179,7 @@ class Cluster {
 
         // move nodes on baricenter
         this.nodes.forEach(node => {
+            if (node.signed_chains.length <= 2) return
             let p = new Vec(0.0, 0.0)
             node.signed_chains.forEach(([sign, chain]) => {
                 p.add(chain.adjacent_node(sign))
