@@ -7,12 +7,11 @@
 
 class Cluster {
     constructor(ds, dt) {
-        this.regions = []
-
+        
         this.ds = ds || 0.1 // length of segments
         this.dt = dt || 0.2 // speed of evolution
-
-        // computed:
+        
+        this.regions = []
         this.chains = []
         this.nodes = []
         this._perimeter = null
@@ -218,7 +217,10 @@ class Cluster {
     }
 
     add_vertex(v) {
-        if (!this.nodes.includes(v)) this.nodes.push(v)
+        if (!this.nodes.includes(v)) {
+            this.nodes.push(v)
+            v.id = this.id_vertex++
+        }
         return v
     }
 
@@ -226,14 +228,18 @@ class Cluster {
         // add chain to cluster as separate dangling component
         this.add_vertex(chain.vertex_start())
         this.add_vertex(chain.vertex_end())
-        if (!this.chains.includes(chain)) this.chains.push(chain)
+        if (!this.chains.includes(chain)) {
+            this.chains.push(chain)
+            chain.id = this.id_chain++
+        }
         return chain
     }
 
-    add_region(region) {
+    add_region(region, external) {
         if (region.cluster === null) {
             region.cluster = this
             this.regions.push(region)
+            if (!external) region.id = this.id_region++
         }
         if (region.cluster !== this) {
             console.log("CANNOT ADD REGION")
@@ -253,7 +259,7 @@ class Cluster {
 
     add_external_region() {
         if (this.external_region === null) {
-            this.external_region = this.add_region(new Region(0.0))
+            this.external_region = this.add_region(new Region(0.0), true)
             this.chains.forEach(chain => {
                 const [left, right] = chain.regions_left_right()
                 if (left === null) this.external_region.add_chain(1, chain)
@@ -592,9 +598,6 @@ class Cluster {
 
         let info = []
 
-        this.regions.forEach(region => {if (!region.id) region.id = this.id_region++})
-        this.chains.forEach(chain => {if (!chain.id) chain.id = this.id_chain++})
-        this.nodes.forEach(vertex => {if (!vertex.id) vertex.id = this.id_vertex++})
         info.push("vertices")
         this.nodes.forEach(vertex => info.push(
             `  ${vertex.id} chains: ${join(vertex.signed_chains)}`))

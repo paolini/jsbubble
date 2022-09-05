@@ -33,7 +33,7 @@ class Main {
             show_buttons: true,
             show_measures: true,
             show_options: true,
-            record_commands: true,
+            record_commands: false,
             dt: 0.2,
             ds: 0.1,
             ...options
@@ -44,7 +44,7 @@ class Main {
         this.cluster = null
 
         this.loop = true
-        this.n_regions = -1
+        this.region_ids = []
         this.new_chain = null
         this.new_vertices = null
         this.records = []
@@ -111,9 +111,8 @@ class Main {
         }
 
         if (this.options.fill_regions) {
-            const colors = this.options.region_colors
             this.cluster.regions.forEach((region, i) => {
-                ctx.setFillColor(colors[i % colors.length])
+                ctx.setFillColor(region.color)
                 let signed_chains = region.signed_chains.filter(() => true) // clone
                 while (signed_chains.length > 0) {
                     let [sign, chain] = signed_chains.pop()
@@ -288,25 +287,24 @@ class Main {
                 .append($elem("th").attr('style', 'width: 5em').text("target"))
                 .append($elem("th").attr('style', 'width: 5em').text(""))
                 .append($elem("th").attr('style', 'width: 5em').text("perimeter")));
-            this.cluster.regions.forEach((region,i) => {
-                const colors = this.options.region_colors
+            this.cluster.regions.forEach(region => {
                 let $input = $elem("input")
-                    .attr("id", "target_" + i)
+                    .attr("id", "target_" + region.id)
                     .attr("value", region.target_area)
                     .attr("size", 5).change((event) => {
                     let target = parseFloat(event.target.value);
                     region.area_target = target; 
                 });
-                const paint=(el, i)=>{
-                    if (this.options.fill_regions) return el.css("background-color",colors[i % colors.length])
+                const paint=(el, color)=>{
+                    if (this.options.fill_regions) return el.css("background-color",color)
                     else return el
                 }
                 $table.append($elem("tr")
-                    .append(paint($elem("td").text(i),i))
-                    .append($elem("td").attr("id", "area_" + i))
+                    .append(paint($elem("td").text(region.id),region.color))
+                    .append($elem("td").attr("id", "area_" + region.id))
                     .append($elem("td").append($input))
-                    .append($elem("td").attr("id", "pressure_" + i))
-                    .append($elem("td").attr("id", "perimeter_" + i)));
+                    .append($elem("td").attr("id", "pressure_" + region.id))
+                    .append($elem("td").attr("id", "perimeter_" + region.id)));
             });
             $div.append($table);
         }
@@ -315,16 +313,23 @@ class Main {
 
     update_html() {
         $("#perimeter").text("perimeter: " + this.cluster.perimeter().toFixed(4));
-        this.cluster.regions.forEach((region, i) => {
-            $("#area_" + i).text(region.area().toFixed(4));
-            $("#target_" + i).attr("value", region.area_target.toFixed(4));
-            $("#pressure_" + i).text(region.pressure.toFixed(4));
-            $("#perimeter_" + i).text(region.perimeter().toFixed(4));
+        this.cluster.regions.forEach(region => {
+            $("#area_" + region.id).text(region.area().toFixed(4));
+            $("#target_" + region.id).attr("value", region.area_target.toFixed(4));
+            $("#pressure_" + region.id).text(region.pressure.toFixed(4));
+            $("#perimeter_" + region.id).text(region.perimeter().toFixed(4));
         });
     }
 
     draw() {
-        if (this.n_regions != this.cluster.regions.length) {
+        let regions_changed = (this.cluster.regions.length != this.region_ids.length)
+        this.cluster.regions.forEach((region, i) => {
+            const colors = this.options.region_colors
+            if (region.id !== this.region_ids[i]) regions_changed = true
+            if (region.color === null) region.color = colors[(region.id-1) % colors.length]
+        })
+
+        if (regions_changed) {
             // repopulate html if the number of regions has changed
             if (this.options.div) this.populate_html($(this.options.div))
             this.n_regions = this.cluster.regions.length
@@ -360,7 +365,6 @@ class Main {
         this.record(`main.command_reset()`)
         this.cluster = new Cluster(this.options.ds, this.options.dt)
     }
-
 
     command_draw(p) {
         if (p !== null) {

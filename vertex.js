@@ -8,6 +8,7 @@
 class Vertex extends Vec {
     constructor(x, y) {
         super(x, y);
+        this.id = 0
         this.force = new Vec(0.0, 0.0);
         this.signed_chains = [] // [sign, chain] if I'm an end-point of chain
     }

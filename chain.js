@@ -5,8 +5,9 @@
  * You should have received a copy of the GNU General Public License along with this program. If not, see <https://www.gnu.org/licenses/>.
  **/
 
- class Chain {
+class Chain {
     constructor(vertices) {
+        this.id = 0
         console.assert(vertices.length >= 2)
         this.vertices = vertices
         this.vertex_start().signed_chains.push([1, this])
