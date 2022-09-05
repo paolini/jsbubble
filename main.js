@@ -33,7 +33,7 @@ class Main {
             show_buttons: true,
             show_measures: true,
             show_options: true,
-            record_commands: false,
+            record_commands: true,
             dt: 0.2,
             ds: 0.1,
             ...options
@@ -44,7 +44,7 @@ class Main {
         this.cluster = null
 
         this.loop = true
-        this.region_ids = []
+        this.region_ids = null
         this.new_chain = null
         this.new_vertices = null
         this.records = []
@@ -68,12 +68,14 @@ class Main {
 
         function on_mouse_down(evt) {
             const p = new Vec(...this.myctx.getCursorPosition(evt))
+            let { chain } = find_closest_chain(this.cluster.chains, p)
             if (this.selected_tool === "remove") {
-                this.command_remove(p)
+                const region = this.cluster.region_containing(p)
+                this.command_remove(chain, region)
             } else if (this.selected_tool === "flip") {
-                this.command_flip(p)
+                this.command_flip(chain)
             } else if (this.selected_tool === "collapse") {
-                this.command_collapse(p)
+                this.command_collapse(chain)
             }
             if (!this.loop) this.draw()
         }
@@ -322,12 +324,14 @@ class Main {
     }
 
     draw() {
-        let regions_changed = (this.cluster.regions.length != this.region_ids.length)
+        let regions_changed = (this.region_ids === null)  
+            || (this.cluster.regions.length != this.region_ids.length)
         this.cluster.regions.forEach((region, i) => {
             const colors = this.options.region_colors
             if (region.id !== this.region_ids[i]) regions_changed = true
             if (region.color === null) region.color = colors[(region.id-1) % colors.length]
         })
+        this.region_ids = this.cluster.regions.map(region => region.id)
 
         if (regions_changed) {
             // repopulate html if the number of regions has changed
@@ -346,6 +350,16 @@ class Main {
         if (this.cluster.regions.length === 0) this.selected_tool = "draw"
         this.draw();
         if (this.loop) window.requestAnimationFrame(() => this.update());
+    }
+
+    chain(id) {
+        return some(this.cluster.chains, 
+            chain => (chain.id === id ? chain : null))
+    }
+
+    region(id) {
+        return some(this.cluster.regions,
+            region => (region.id === id ? region : null))
     }
 
     record(msg) {
@@ -389,27 +403,25 @@ class Main {
         }
     }
 
-    command_flip(p) {
-        this.record(`main.command_flip(new Vec(${p.x},${p.y}))`)
-        let { chain } = find_closest_chain(this.cluster.chains, p)
+    command_flip(chain) {
+        this.record(`main.command_flip(main.chain(${chain.id}))`)
         if (chain === null) return
         this.cluster.flip_chain(chain)
     }
 
-    command_collapse(p) {
-        this.record(`main.command_collapse(new Vec(${p.x},${p.y}))`)
-        let { chain } = find_closest_chain(this.cluster.chains, p)
+    command_collapse(chain) {
+        this.record(`main.command_collapse(main.chain(${chain.id}))`)
         if (chain === null) return
         this.cluster.collapse_chain(chain)
     }
 
-    command_remove(p) {
-        this.record(`main.command_remove(new Vec(${p.x},${p.y}))`)
-        let region = this.cluster.region_containing(p)
-        let { chain } = find_closest_chain(this.cluster.chains, p)
+    command_remove(chain, region) {
         if (chain === null) return
+        this.record(`main.command_remove(main.chain(${chain.id}),main.region(${region?region.id:-1}))`)
         if (region === null && chain && chain.signed_regions.length > 0) {
             region = chain.signed_regions[0][1]
+        } else {
+
         }
         if (region) {
             let other_region = null

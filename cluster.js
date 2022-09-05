@@ -226,6 +226,9 @@ class Cluster {
 
     add_chain(chain) {
         // add chain to cluster as separate dangling component
+        chain.vertices.forEach(v => {
+            if (v.id === 0) v.id = this.id_vertex++
+        })
         this.add_vertex(chain.vertex_start())
         this.add_vertex(chain.vertex_end())
         if (!this.chains.includes(chain)) {
@@ -612,19 +615,26 @@ class Cluster {
     }
 
     json() {
-        const nodes = this.nodes.map(v => [round(v.x),round(v.x)])
+        let vertices = new Map() // id => vertex
+        this.chains.forEach(chain => {
+            chain.vertices.forEach(vertex => {
+                vertices.set(vertex.id, vertex)
+            })
+        })
+        let vertex_ids = Array.from(vertices.keys())
+        vertex_ids.sort()
+        const nodes = vertex_ids.map(id => vertices.get(id))
+            .map(v => [v.id, round(v.x), round(v.x)])
         const chains = this.chains.map(chain => {
-            const start = this.nodes.indexOf(chain.vertex_start())
-            const end = this.nodes.indexOf(chain.vertex_end())
-            const vertices = chain.vertices.slice(1,-1).map(
-                v => [round(v.x),round(v.y)])
-            return { start, end, vertices }
-            })
-        const regions = this.regions.map(region => {
-            const chains = region.signed_chains.map(([s,c]) => s*(1+this.chains.indexOf(c)))
-            const area_target = round(region.area_target)
-            return { area_target, chains }
-            })
+            let lst = chain.vertices.map(v => v.id)
+            lst.unshift(chain.id)
+            return lst
+        })
+        const regions = this.regions.map(region => ([
+            region.id,
+            round(region.area_target),
+            region.signed_chains.map(([s,c]) => s*c.id)
+        ]))
         return { nodes, chains, regions }
     }
 
