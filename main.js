@@ -72,13 +72,19 @@ class Main {
             switch(this.selected_tool) {
                 case "remove":
                     const region = this.cluster.region_containing(p)
-                    this.command_remove(chain, region)
+                    if (chain) this.command_remove(chain, region)
                     break
                 case "flip":
-                    this.command_flip(chain)
+                    if (chain) this.command_flip(chain)
                     break
                 case "collapse":
-                    this.command_collapse(chain)
+                    if (chain) this.command_collapse(chain)
+                    break
+                case "split":
+                    const v = find_closest_node(this.cluster.nodes, p)
+                    if (v && v.signed_chains.length > 3) {
+                        this.cluster.split_vertex(v)
+                    }
                     break
             }
             if (!this.loop) this.draw()
@@ -235,8 +241,8 @@ class Main {
                 : "Draw a line joining two boundary points"),
             "remove": "Remove an edge",
             "flip": "Flip an edge",
-            "collapse": "Shrink an edge",
-            "split": "Split a vertex"
+            "collapse": "Collapse an edge",
+            "split": "Split a vertex with at least 4 edges"
         }
         let $select = $elem("select")
         $div.append($select)

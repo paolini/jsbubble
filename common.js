@@ -111,6 +111,14 @@ function find_closest_chain(chains, p) {
     return chain
 }
 
+function find_closest_node(vertices, p) {
+    return vertices.reduce(([best_d, best_v], v) => {
+            const d = vec_distance(v, p)
+            if (d<best_d) return [d, v]
+            else return [best_d, best_v]
+        }, [Infinity, null])[1]
+    }
+
 function locate_path(signed_chains, start, end, sign, remove) {
     // return a signed_chains following the oriented chains
     // from start to end 
