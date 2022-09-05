@@ -23,7 +23,7 @@ class Main {
             draw_ids: false,
             vertex_id_color: "black",
             chain_id_color: "blue",
-            fix_topology: true,
+            auto_topology: false,
             fill_regions: false,
             region_colors: [
                 "#a008", "#0808", "#8808", "#cdc8", "#0088", "#8088", 
@@ -251,6 +251,33 @@ class Main {
         })
         $select.val(this.selected_tool)
         $select.change(function() {self.selected_tool = $(this).val()})
+
+        $div.append($elem("br"))
+
+        $div.append($elem("span").text("precision"))
+        $div.append($elem("input").attr({
+            id: "precision",
+            type: "range",
+            min: "1",
+            max: "4",
+            step: "any",
+            value: -Math.log(this.options.ds)/Math.log(2) 
+        }).change(evt => {
+            this.options.ds = Math.pow(2, -parseFloat(evt.target.value))
+        }))
+        $div.append($elem("span").text(" speed"))
+        $div.append($elem("input").attr({
+            id: "speed",
+            type: "range",
+            min: "-4",
+            max: "1",
+            step: "any",
+            value: Math.log(this.options.dt)/Math.log(2)
+        }).change(evt => {
+            this.options.dt = Math.pow(2, parseFloat(evt.target.value))
+        }))
+        $div.append($elem("span").attr("id","span_ds_dt"))
+
         $div.append($elem("br"))
 
         if (this.options.show_buttons) {
@@ -284,12 +311,14 @@ class Main {
                     .prop("checked", this.options[option_name])
                     .change(function() { 
                         self.options[option_name] = $(this).prop("checked")
+                        self.region_ids = null // force recompute
                         self.draw()
                     })).append($elem("span").text(option_description))
             }
 
             add_checkbox("fill_regions","fill regions")
             add_checkbox("draw_forces", "draw forces")
+            add_checkbox("auto_topology", "auto topology")
         }
         if (this.options.show_measures && this.cluster.regions.length > 0) {
             $div.append($elem("p").attr("id", "perimeter"));
@@ -326,6 +355,7 @@ class Main {
 
     update_html() {
         $("#perimeter").text("perimeter: " + this.cluster.perimeter().toFixed(4));
+        $("#span_ds_dt").text(` [ds=${this.options.ds.toFixed(3)}, dt=${this.options.dt.toFixed(3)}]`)
         this.cluster.regions.forEach(region => {
             $("#area_" + region.id).text(region.area().toFixed(4));
             $("#target_" + region.id).attr("value", region.area_target.toFixed(4));
@@ -339,7 +369,7 @@ class Main {
             || (this.cluster.regions.length != this.region_ids.length)
         this.cluster.regions.forEach((region, i) => {
             const colors = this.options.region_colors
-            if (region.id !== this.region_ids[i]) regions_changed = true
+            if (!this.region_ids || region.id !== this.region_ids[i]) regions_changed = true
             if (region.color === null) region.color = colors[(region.id-1) % colors.length]
         })
         this.region_ids = this.cluster.regions.map(region => region.id)
@@ -354,7 +384,7 @@ class Main {
     }
 
     update() {
-        this.cluster.fix_topology = this.options.fix_topology
+        this.cluster.fix_topology = !this.options.auto_topology
         this.cluster.dt = this.options.dt
         this.cluster.ds = this.options.ds
         this.cluster.evolve();

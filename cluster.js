@@ -151,15 +151,8 @@ class Cluster {
                 chain.vertices.splice(k+1, 0, new Vertex((v.x+w.x)/2, (v.y+w.y)/2));
             } else if (this.ds * (n-1) > l) {
                 if (l < this.ds && !this.fix_topology) {
-                    console.log("MERGE")
-                    console.log(this.info())
-                    dump({ n1: chain.vertex_start().signed_chains.length,
-                        n2: chain.vertex_end().signed_chains.length })
                     let node = this.pinch_vertices(chain.vertex_start(), chain.vertex_end())
-                    dump({n: node.signed_chains.length })
                     this.remove_chain(chain)
-                    dump({n: node.signed_chains.length })
-                    console.log(this.info())
                     this.split_vertex(node)
                 } else if (n>3) {
                     // remove a vertex
@@ -168,6 +161,11 @@ class Cluster {
                 }
             }
         });
+
+        if (!this.fix_topology) {
+            this.nodes.filter(node => (node.signed_chains.length > 3))
+                .forEach(node => this.split_vertex(node))
+        }
 
     }
 
@@ -408,8 +406,8 @@ class Cluster {
         let area = region.area()
         const [start, end] = chain.vertices_start_end()
         let path = locate_path(region.signed_chains, end, start, 1)
-        path.push([1, chain])
         if (path === null) throw new Error("invalid topology")
+        path.push([1, chain])
 
         // choose smallest of two parts
         let a = path_area(path) 
@@ -418,8 +416,8 @@ class Cluster {
 
         if (sign < 0) {
             path = locate_path(region.signed_chains, start, end, 1)
+            if (path === null) throw new Error("invalid topology")
             path.push([-1, chain])
-            if (path === null) throw new Error("invalid topology")    
         }
         
         path.forEach(([s, chain]) => {
