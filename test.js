@@ -6,10 +6,9 @@
  **/
 
 function test(main) {
-    main.cluster.ds=0.1
+    main.cluster.ds=0.5
     main.cluster.dt=0.2
     main.command_reset()
-    main.cluster.ds=0.5
     main.command_draw(new Vertex(-0.16666641235351554,0.9656249523162841))
     main.command_draw(new Vertex(-0.7833332061767577,1.340624952316284))
     main.command_draw(new Vertex(-1.4249999999999998,1.4822915554046632))
@@ -51,24 +50,54 @@ function test(main) {
     main.command_draw(new Vertex(-2.975,0.47395834922790536))
     main.command_draw(new Vertex(-3.491666650772095,0.45729155540466326))
     main.command_draw(null)
-    main.command_collapse(new Vertex(-2.0583332061767576,0.5406249523162843))
-    main.command_remove(new Vertex(-2.925,0.3989583492279052))
-    main.command_flip(new Vertex(-2.191666603088379,0.8239583492279055))
-    main.command_collapse(new Vertex(-2.141666603088379,0.8406249523162841))
+    //    main.command_collapse(new Vertex(-2.0583332061767576,0.5406249523162843))
+    //    main.command_remove(new Vertex(-2.925,0.3989583492279052))
+    //    main.command_flip(new Vertex(-2.191666603088379,0.8239583492279055))
+    //    main.command_collapse(new Vertex(-2.141666603088379,0.8406249523162841))
+    main.command_collapse(main.chain(4))
+    main.command_remove(main.chain(5),main.region(-1))
+    main.command_flip(main.chain(6))
+    main.command_collapse(main.chain(6))
+    console.log(JSON.stringify(main.cluster.json()))
     main.command_check({
-            "nodes": [[-0.667,-0.667],[-1.1,-1.1],[-2.133,-2.133],[-2.092,-2.092]],
-            "chains": [
-                {"start":3,"end":0,"vertices":[]},
-                {"start":0,"end":1,"vertices":[[0.492,0.599],[0.708,0.107],[0.733,-0.493],[0.6,-0.993],[0.258,-1.401],[-0.25,-1.443]]},
-                {"start":2,"end":1,"vertices":[[-1.633,-0.818]]},
-                {"start":3,"end":2,"vertices":[]},
-                {"start":0,"end":3,"vertices":[[-0.167,0.966],[-0.783,1.341],[-1.425,1.482]]},
-                {"start":1,"end":3,"vertices":[]},
-                {"start":2,"end":3,"vertices":[[-2.708,-0.918],[-3.267,-0.809],[-3.675,-0.459],[-3.883,0.024],[-3.933,0.591],[-3.692,1.041],[-3.233,1.316],[-2.642,1.474]]}],
-            "regions":[
-                {"area_target":3.697,"chains":[-4,-7]},
-                {"area_target":2.58,"chains":[-1,-2,-6]},
-                {"area_target":2.096,"chains":[1,5]},
-                {"area_target":1.167,"chains":[4,3,6]}]})
-    console.log("test passed!")
+        "nodes":[
+            [10,-3.675,-3.675],
+			[11,-3.267,-3.267],
+			[12,-2.708,-2.708],
+			[13,-2.133,-2.133],
+			[14,-1.633,-1.633],
+			[15,-1.1,-1.1],
+			[17,-0.667,-0.667],
+			[19,-0.167,-0.167],
+			[2,-0.783,-0.783],
+			[22,0.492,0.492],
+			[23,0.708,0.708],
+			[24,0.733,0.733],
+			[25,0.6,0.6],
+			[26,0.258,0.258],
+			[27,-0.25,-0.25],
+			[3,-1.425,-1.425],
+			[47,-2.092,-2.092],
+			[5,-2.642,-2.642],
+			[6,-3.233,-3.233],
+			[7,-3.692,-3.692],
+			[8,-3.933,-3.933],
+            [9,-3.883,-3.883]
+        ],
+        "chains":[
+            [1,47,17],
+			[2,17,22,23,24,25,26,27,15],
+			[0,13,14,15],
+			[3,47,13],
+			[0,17,19,2,3,47],
+			[0,15,47],
+            [7,13,12,11,10,9,8,7,6,5,47]
+        ],
+        "regions":[
+            [1,3.697,[-3,-7]],
+            [2,2.58,[-1,-2,0]],
+            [3,2.096,[1,0]],
+            [4,1.167,[3,0,0]]
+        ]})
+   console.log("test passed!")
 }
