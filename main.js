@@ -421,6 +421,12 @@ class Main {
         this.cluster = new Cluster(this.options.ds, this.options.dt)
     }
 
+    command_step(count) {
+        count = count || 1
+        this.record(`main.command_step(${count})`)
+        for(;count>0;count--) this.update()
+    }
+
     command_draw(p) {
         if (p !== null) {
             if (this.new_vertices === null) {

@@ -517,7 +517,7 @@ class Cluster {
 
         let node = chain.vertices[idx]
         let start = chain.vertices[0]
-        this.nodes.push(node)
+        this.add_vertex(node)
         let vertices = chain.vertices.splice(0,idx) // cut first part
         let chain2 = chain
 
@@ -538,7 +538,7 @@ class Cluster {
         node.signed_chains.push([1, chain]) 
         vertices.push(node)
         let chain1 = new Chain(vertices)
-        this.chains.push(chain1)
+        this.add_chain(chain1)
 
         chain1.invalidate()
         chain2.invalidate()
