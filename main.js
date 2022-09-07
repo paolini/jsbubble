@@ -388,9 +388,14 @@ class Main {
         this.cluster.fix_topology = !this.options.auto_topology
         this.cluster.dt = this.options.dt
         this.cluster.ds = this.options.ds
-        this.cluster.evolve();
+        this.cluster.evolve()
         if (this.cluster.regions.length === 0) this.selected_tool = "draw"
-        this.draw();
+        this.draw()
+        if (this.loop) {
+            window.requestAnimationFrame(() => this.update())
+        }
+    }
+        
     node(id) {
         return some(this.cluster.nodes,
             node => (node.id === id ? node : null))
