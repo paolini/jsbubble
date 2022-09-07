@@ -16,12 +16,25 @@
     }
 
     getCursorPosition(event) {
-        if (this.canvas == null) return null;
-        const rect = this.canvas.getBoundingClientRect();
-        if (event.touches) event = event.touches[0]; // mobile devices
-        const x = this.x_ctx(event.clientX - rect.left);
-        const y = this.y_ctx(event.clientY - rect.top);
-        return [x, y];
+        if (this.canvas === null) return null
+        const rect = this.canvas.getBoundingClientRect()
+        if (event.touches) event = event.touches[0] // mobile devices
+        const x = this.x_ctx(event.clientX - rect.left)
+        const y = this.y_ctx(event.clientY - rect.top)
+        /*
+        Maybe it is bettere event.offsetX or event.layerX
+        */
+        return [x, y]
+    }
+
+    getTouchPosition(event) {
+        if (this.canvas === null) return null
+        if (!event.touches) return null
+        if (event.touches.length !== 1) return null
+        let touch = event.touches[0]
+        const x = this.x_ctx(touch.pageX - touch.target.offsetLeft)
+        const y = this.y_ctx(touch.pageY - touch.target.offsetTop)
+        return [x, y]
     }
 
     update(width, height) {

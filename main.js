@@ -66,8 +66,7 @@ class Main {
         this.myctx = new MyCtx(0, 0, 10)
         this.myctx.reset_canvas(canvas)
 
-        function on_mouse_down(evt) {
-            const p = new Vec(...this.myctx.getCursorPosition(evt))
+        let event_down=(p) => {
             let chain = find_closest_chain(this.cluster.chains, p)
             switch(this.selected_tool) {
                 case "remove":
@@ -91,26 +90,63 @@ class Main {
             if (!this.loop) this.draw()
         }
 
-        function on_mouse_move(evt) {
+        let event_move=(p)=> {
             if (this.selected_tool === "draw") {
-                const p = new Vertex(...this.myctx.getCursorPosition(evt))
-                if (evt.buttons == 1) {
-                    this.command_draw(p)
-                    if (!this.loop) this.draw()
-                }
-            }
-        }
-
-        function on_mouse_up(evt) {
-            if (this.selected_tool === "draw") {
-                this.command_draw(null)
+                this.command_draw(p)
                 if (!this.loop) this.draw()
             }
         }
 
-        canvas.addEventListener("pointerdown", on_mouse_down.bind(this), false)
-        canvas.addEventListener("pointermove", on_mouse_move.bind(this), false)
-        canvas.addEventListener("pointerup", on_mouse_up.bind(this), false)
+        let event_up=()=> {
+            if (this.selected_tool === "draw") {
+                this.command_draw(null)
+                if (!this.loop) this.draw()
+            }            
+        }
+
+        // mouse controls: 
+
+        let on_mouse_down=(evt)=> {
+            const p = new Vec(...this.myctx.getCursorPosition(evt))
+            event_down(p)
+        }
+
+        let on_mouse_move=(evt)=> {
+            if (evt.buttons !== 1) return 
+            const p = new Vertex(...this.myctx.getCursorPosition(evt))
+            event_move(p)
+        }
+
+        let on_mouse_up=(evt)=> {
+            event_up(evt)
+        }
+
+        canvas.addEventListener("pointerdown", on_mouse_down, false)
+        canvas.addEventListener("pointermove", on_mouse_move, false)
+        window.addEventListener("pointerup", on_mouse_up, false)
+
+        // touch controls
+
+        let on_touch_down=(evt)=> {
+            const p = new Vec(...this.myctx.getTouchPosition(evt))
+            event_down(p)
+            evt.preventDefault()
+        }
+
+        let on_touch_move=(evt)=> {
+            const p = new Vec(...this.myctx.getTouchPosition(evt))
+            event_move(p)
+            evt.preventDefault()
+        }
+
+        let on_touch_up=(evt)=> {
+            event_up()
+            evt.preventDefault()
+        }
+
+        canvas.addEventListener("touchstart", on_touch_down, false)
+        canvas.addEventListener("touchmove", on_touch_move, false)
+        canvas.addEventListener("touchup", on_touch_up, false)
     }
     
     plot(ctx) {

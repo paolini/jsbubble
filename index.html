@@ -32,6 +32,19 @@
                 test(new Main({canvas: null, div: null}))
             })
         </script>
+        <style>
+#container {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none; 
+    -khtml-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;   
+}
+#canvas {
+    position:relative;
+}
+        </style>
 
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css"> <!-- for github icon -->
 
@@ -55,8 +68,10 @@
     </head>
     <body>
         <h2>js-bubble</h2>
+        <div id="container">
         <canvas id="canvas" width="640" height="480"></canvas>
         <div id="div"></div>
+        </div>
         <p><a href="https://github.com/paolini/jsbubble"><i class="fa fa-github"></i>Source code</a> (manu-fatto)</p>
     </body>
 </html>
