@@ -237,6 +237,10 @@ class Cluster {
         return chain
     }
 
+    remove_chain(chain) {
+        array_remove(this.chains, chain)
+    }
+
     add_region(region, external) {
         if (region.cluster === null) {
             region.cluster = this
@@ -447,9 +451,7 @@ class Cluster {
         if (vertex.signed_chains.length < 4) return
 
         let angle_signed_chains = vertex.signed_chains.map(([sign, chain]) => ([chain.angle_node(sign), [sign, chain]]))
-        dump({ angle_signed_chains })
         angle_signed_chains.sort((a,b) => (a[0]-b[0]))
-        dump({ angle_signed_chains })
         let best_a = Infinity
         let best_i = null
         const n = angle_signed_chains.length
@@ -461,49 +463,31 @@ class Cluster {
                 best_i = i
             }
         }
-        dump({best_a, best_i})
 
         let [sign1, chain1] = angle_signed_chains[best_i][1]
         let [sign2, chain2] = angle_signed_chains[(best_i+1)%n][1]
 
         let v = this.add_vertex(new Vertex(vertex.x, vertex.y))
         let chain = this.add_chain(new Chain([vertex, v]))
+        
+        let operate_on = (sign1, chain1) => {
+            let new_chain1 = this.add_chain(new Chain(chain1.vertices.slice()))
+            v.add(chain1.adjacent_node(sign1))
+            new_chain1.set_vertex(sign1, v)
+            chain1.signed_regions
+                .map(x => x) // need to clone
+                .forEach(([s,r]) => {
+                    const ss = s*sign1
 
-        let m = new Vec(vertex.x, vertex.y)
-        let region_signs = new Map()
-
-        function replace_vertex(sign, chain) {
-            signed_elements_remove(vertex.signed_chains, sign, chain)
-            v.signed_chains.push([sign, chain])
-            if (sign > 0) {
-                chain.vertices[0] = v
-                m = vec_add(m, chain.vertices[1])
-            } else {
-                const n = chain.vertices.length - 1
-                chain.vertices[n] = v
-                m = vec_add(m, chain.vertices[n-1])
-            }
-            chain.signed_regions.forEach(([s, region]) => {
-                region.signed_chains.push([s, chain])
-                if (region_signs.has(region)) {
-                    region_signs.set(region, region_signs.get(region) + s*sign)
-                } else {
-                    region_signs.set(region, s*sign)
-                }    
+                    r.add_chain(-s,chain1)
+                    r.add_chain(s,new_chain1)
+                    r.add_chain(s*sign1,chain)
             })
+            if (chain1.signed_regions.length === 0) this.remove_chain(chain1)
         }
-
-        replace_vertex(sign1, chain1)
-        replace_vertex(sign2, chain2)
-
-        // move v slightly towards the two chains
-        m = vec_div(m, 3)
-        v.x = m.x
-        v.y = m.y
-
-        region_signs.forEach((sign, region) => {
-            if (sign !== 0) chain.signed_regions.push([sign, region])
-        })
+        operate_on(sign1,chain1)
+        operate_on(sign2,chain2)        
+        v.div(3)
     }
 
     split_chain(chain, idx) {
@@ -518,6 +502,7 @@ class Cluster {
         let node = chain.vertices[idx]
         let start = chain.vertices[0]
         this.add_vertex(node)
+
         let vertices = chain.vertices.splice(0,idx) // cut first part
         let chain2 = chain
 

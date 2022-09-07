@@ -83,6 +83,7 @@ class Main {
                 case "split":
                     const v = find_closest_node(this.cluster.nodes, p)
                     if (v && v.signed_chains.length > 3) {
+                        this.command_split(v)
                         this.cluster.split_vertex(v)
                     }
                     break
@@ -312,7 +313,7 @@ class Main {
                     .change(function() { 
                         self.options[option_name] = $(this).prop("checked")
                         self.region_ids = null // force recompute
-                        self.draw()
+                        if (!this.loop) self.draw()
                     })).append($elem("span").text(option_description))
             }
 
@@ -390,7 +391,9 @@ class Main {
         this.cluster.evolve();
         if (this.cluster.regions.length === 0) this.selected_tool = "draw"
         this.draw();
-        if (this.loop) window.requestAnimationFrame(() => this.update());
+    node(id) {
+        return some(this.cluster.nodes,
+            node => (node.id === id ? node : null))
     }
 
     chain(id) {
@@ -454,6 +457,11 @@ class Main {
         this.record(`main.command_flip(main.chain(${chain.id}))`)
         if (chain === null) return
         this.cluster.flip_chain(chain)
+    }
+
+    command_split(vertex) {
+        this.record(`main.command_split(main.node(${vertex.id}))`)
+        this.cluster.split_vertex(vertex)
     }
 
     command_collapse(chain) {
