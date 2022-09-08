@@ -23,7 +23,7 @@ class Main {
             draw_ids: false,
             vertex_id_color: "black",
             chain_id_color: "blue",
-            fix_topology: true,
+            auto_topology: false,
             fill_regions: false,
             region_colors: [
                 "#a008", "#0808", "#8808", "#cdc8", "#0088", "#8088", 
@@ -44,7 +44,7 @@ class Main {
         this.cluster = null
 
         this.loop = true
-        this.n_regions = -1
+        this.region_ids = null
         this.new_chain = null
         this.new_vertices = null
         this.records = []
@@ -66,38 +66,87 @@ class Main {
         this.myctx = new MyCtx(0, 0, 10)
         this.myctx.reset_canvas(canvas)
 
-        function on_mouse_down(evt) {
-            const p = new Vec(...this.myctx.getCursorPosition(evt))
-            if (this.selected_tool === "remove") {
-                this.command_remove(p)
-            } else if (this.selected_tool === "flip") {
-                this.command_flip(p)
-            } else if (this.selected_tool === "collapse") {
-                this.command_collapse(p)
+        let event_down=(p) => {
+            let chain = find_closest_chain(this.cluster.chains, p)
+            switch(this.selected_tool) {
+                case "remove":
+                    const region = this.cluster.region_containing(p)
+                    if (chain) this.command_remove(chain, region)
+                    break
+                case "flip":
+                    if (chain) this.command_flip(chain)
+                    break
+                case "collapse":
+                    if (chain) this.command_collapse(chain)
+                    break
+                case "split":
+                    const v = find_closest_node(this.cluster.nodes, p)
+                    if (v && v.signed_chains.length > 3) {
+                        this.command_split(v)
+                        this.cluster.split_vertex(v)
+                    }
+                    break
             }
             if (!this.loop) this.draw()
         }
 
-        function on_mouse_move(evt) {
+        let event_move=(p)=> {
             if (this.selected_tool === "draw") {
-                const p = new Vertex(...this.myctx.getCursorPosition(evt))
-                if (evt.buttons == 1) {
-                    this.command_draw(p)
-                    if (!this.loop) this.draw()
-                }
-            }
-        }
-
-        function on_mouse_up(evt) {
-            if (this.selected_tool === "draw") {
-                this.command_draw(null)
+                this.command_draw(p)
                 if (!this.loop) this.draw()
             }
         }
 
-        canvas.addEventListener("pointerdown", on_mouse_down.bind(this), false)
-        canvas.addEventListener("pointermove", on_mouse_move.bind(this), false)
-        canvas.addEventListener("pointerup", on_mouse_up.bind(this), false)
+        let event_up=()=> {
+            if (this.selected_tool === "draw") {
+                this.command_draw(null)
+                if (!this.loop) this.draw()
+            }            
+        }
+
+        // mouse controls: 
+
+        let on_mouse_down=(evt)=> {
+            const p = new Vec(...this.myctx.getCursorPosition(evt))
+            event_down(p)
+        }
+
+        let on_mouse_move=(evt)=> {
+            if (evt.buttons !== 1) return 
+            const p = new Vertex(...this.myctx.getCursorPosition(evt))
+            event_move(p)
+        }
+
+        let on_mouse_up=(evt)=> {
+            event_up(evt)
+        }
+
+        canvas.addEventListener("pointerdown", on_mouse_down, false)
+        canvas.addEventListener("pointermove", on_mouse_move, false)
+        window.addEventListener("pointerup", on_mouse_up, false)
+
+        // touch controls
+
+        let on_touch_down=(evt)=> {
+            const p = new Vec(...this.myctx.getTouchPosition(evt))
+            event_down(p)
+            evt.preventDefault()
+        }
+
+        let on_touch_move=(evt)=> {
+            const p = new Vec(...this.myctx.getTouchPosition(evt))
+            event_move(p)
+            evt.preventDefault()
+        }
+
+        let on_touch_up=(evt)=> {
+            event_up()
+            evt.preventDefault()
+        }
+
+        canvas.addEventListener("touchstart", on_touch_down, false)
+        canvas.addEventListener("touchmove", on_touch_move, false)
+        canvas.addEventListener("touchup", on_touch_up, false)
     }
     
     plot(ctx) {
@@ -111,9 +160,8 @@ class Main {
         }
 
         if (this.options.fill_regions) {
-            const colors = this.options.region_colors
             this.cluster.regions.forEach((region, i) => {
-                ctx.setFillColor(colors[i % colors.length])
+                ctx.setFillColor(region.color)
                 let signed_chains = region.signed_chains.filter(() => true) // clone
                 while (signed_chains.length > 0) {
                     let [sign, chain] = signed_chains.pop()
@@ -230,7 +278,8 @@ class Main {
                 : "Draw a line joining two boundary points"),
             "remove": "Remove an edge",
             "flip": "Flip an edge",
-            "collapse": "shrink an edge"
+            "collapse": "Collapse an edge",
+            "split": "Split a vertex with at least 4 edges"
         }
         let $select = $elem("select")
         $div.append($select)
@@ -239,6 +288,33 @@ class Main {
         })
         $select.val(this.selected_tool)
         $select.change(function() {self.selected_tool = $(this).val()})
+
+        $div.append($elem("br"))
+
+        $div.append($elem("span").text("precision"))
+        $div.append($elem("input").attr({
+            id: "precision",
+            type: "range",
+            min: "1",
+            max: "4",
+            step: "any",
+            value: -Math.log(this.options.ds)/Math.log(2) 
+        }).change(evt => {
+            this.options.ds = Math.pow(2, -parseFloat(evt.target.value))
+        }))
+        $div.append($elem("span").text(" speed"))
+        $div.append($elem("input").attr({
+            id: "speed",
+            type: "range",
+            min: "-4",
+            max: "1",
+            step: "any",
+            value: Math.log(this.options.dt)/Math.log(2)
+        }).change(evt => {
+            this.options.dt = Math.pow(2, parseFloat(evt.target.value))
+        }))
+        $div.append($elem("span").attr("id","span_ds_dt"))
+
         $div.append($elem("br"))
 
         if (this.options.show_buttons) {
@@ -272,12 +348,14 @@ class Main {
                     .prop("checked", this.options[option_name])
                     .change(function() { 
                         self.options[option_name] = $(this).prop("checked")
-                        self.draw()
+                        self.region_ids = null // force recompute
+                        if (!this.loop) self.draw()
                     })).append($elem("span").text(option_description))
             }
 
             add_checkbox("fill_regions","fill regions")
             add_checkbox("draw_forces", "draw forces")
+            add_checkbox("auto_topology", "auto topology")
         }
         if (this.options.show_measures && this.cluster.regions.length > 0) {
             $div.append($elem("p").attr("id", "perimeter"));
@@ -288,25 +366,24 @@ class Main {
                 .append($elem("th").attr('style', 'width: 5em').text("target"))
                 .append($elem("th").attr('style', 'width: 5em').text(""))
                 .append($elem("th").attr('style', 'width: 5em').text("perimeter")));
-            this.cluster.regions.forEach((region,i) => {
-                const colors = this.options.region_colors
+            this.cluster.regions.forEach(region => {
                 let $input = $elem("input")
-                    .attr("id", "target_" + i)
+                    .attr("id", "target_" + region.id)
                     .attr("value", region.target_area)
                     .attr("size", 5).change((event) => {
                     let target = parseFloat(event.target.value);
                     region.area_target = target; 
                 });
-                const paint=(el, i)=>{
-                    if (this.options.fill_regions) return el.css("background-color",colors[i % colors.length])
+                const paint=(el, color)=>{
+                    if (this.options.fill_regions) return el.css("background-color",color)
                     else return el
                 }
                 $table.append($elem("tr")
-                    .append(paint($elem("td").text(i),i))
-                    .append($elem("td").attr("id", "area_" + i))
+                    .append(paint($elem("td").text(region.id),region.color))
+                    .append($elem("td").attr("id", "area_" + region.id))
                     .append($elem("td").append($input))
-                    .append($elem("td").attr("id", "pressure_" + i))
-                    .append($elem("td").attr("id", "perimeter_" + i)));
+                    .append($elem("td").attr("id", "pressure_" + region.id))
+                    .append($elem("td").attr("id", "perimeter_" + region.id)));
             });
             $div.append($table);
         }
@@ -315,16 +392,26 @@ class Main {
 
     update_html() {
         $("#perimeter").text("perimeter: " + this.cluster.perimeter().toFixed(4));
-        this.cluster.regions.forEach((region, i) => {
-            $("#area_" + i).text(region.area().toFixed(4));
-            $("#target_" + i).attr("value", region.area_target.toFixed(4));
-            $("#pressure_" + i).text(region.pressure.toFixed(4));
-            $("#perimeter_" + i).text(region.perimeter().toFixed(4));
+        $("#span_ds_dt").text(` [ds=${this.options.ds.toFixed(3)}, dt=${this.options.dt.toFixed(3)}]`)
+        this.cluster.regions.forEach(region => {
+            $("#area_" + region.id).text(region.area().toFixed(4));
+            $("#target_" + region.id).attr("value", region.area_target.toFixed(4));
+            $("#pressure_" + region.id).text(region.pressure.toFixed(4));
+            $("#perimeter_" + region.id).text(region.perimeter().toFixed(4));
         });
     }
 
     draw() {
-        if (this.n_regions != this.cluster.regions.length) {
+        let regions_changed = (this.region_ids === null)  
+            || (this.cluster.regions.length != this.region_ids.length)
+        this.cluster.regions.forEach((region, i) => {
+            const colors = this.options.region_colors
+            if (!this.region_ids || region.id !== this.region_ids[i]) regions_changed = true
+            if (region.color === null) region.color = colors[(region.id-1) % colors.length]
+        })
+        this.region_ids = this.cluster.regions.map(region => region.id)
+
+        if (regions_changed) {
             // repopulate html if the number of regions has changed
             if (this.options.div) this.populate_html($(this.options.div))
             this.n_regions = this.cluster.regions.length
@@ -334,13 +421,30 @@ class Main {
     }
 
     update() {
-        this.cluster.fix_topology = this.options.fix_topology
+        this.cluster.fix_topology = !this.options.auto_topology
         this.cluster.dt = this.options.dt
         this.cluster.ds = this.options.ds
-        this.cluster.evolve();
+        this.cluster.evolve()
         if (this.cluster.regions.length === 0) this.selected_tool = "draw"
-        this.draw();
-        if (this.loop) window.requestAnimationFrame(() => this.update());
+        this.draw()
+        if (this.loop) {
+            window.requestAnimationFrame(() => this.update())
+        }
+    }
+        
+    node(id) {
+        return some(this.cluster.nodes,
+            node => (node.id === id ? node : null))
+    }
+
+    chain(id) {
+        return some(this.cluster.chains, 
+            chain => (chain.id === id ? chain : null))
+    }
+
+    region(id) {
+        return some(this.cluster.regions,
+            region => (region.id === id ? region : null))
     }
 
     record(msg) {
@@ -361,6 +465,11 @@ class Main {
         this.cluster = new Cluster(this.options.ds, this.options.dt)
     }
 
+    command_step(count) {
+        count = count || 1
+        this.record(`main.command_step(${count})`)
+        for(;count>0;count--) this.update()
+    }
 
     command_draw(p) {
         if (p !== null) {
@@ -385,27 +494,30 @@ class Main {
         }
     }
 
-    command_flip(p) {
-        this.record(`main.command_flip(new Vec(${p.x},${p.y}))`)
-        let { chain } = find_closest_chain(this.cluster.chains, p)
+    command_flip(chain) {
+        this.record(`main.command_flip(main.chain(${chain.id}))`)
         if (chain === null) return
         this.cluster.flip_chain(chain)
     }
 
-    command_collapse(p) {
-        this.record(`main.command_collapse(new Vec(${p.x},${p.y}))`)
-        let { chain } = find_closest_chain(this.cluster.chains, p)
+    command_split(vertex) {
+        this.record(`main.command_split(main.node(${vertex.id}))`)
+        this.cluster.split_vertex(vertex)
+    }
+
+    command_collapse(chain) {
+        this.record(`main.command_collapse(main.chain(${chain.id}))`)
         if (chain === null) return
         this.cluster.collapse_chain(chain)
     }
 
-    command_remove(p) {
-        this.record(`main.command_remove(new Vec(${p.x},${p.y}))`)
-        let region = this.cluster.region_containing(p)
-        let { chain } = find_closest_chain(this.cluster.chains, p)
+    command_remove(chain, region) {
         if (chain === null) return
+        this.record(`main.command_remove(main.chain(${chain.id}),main.region(${region?region.id:-1}))`)
         if (region === null && chain && chain.signed_regions.length > 0) {
             region = chain.signed_regions[0][1]
+        } else {
+
         }
         if (region) {
             let other_region = null
