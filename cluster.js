@@ -174,7 +174,12 @@ class Cluster {
 
         // move vertices along forces
         const tau = this.dt*this.ds*this.ds
-        this.each_vertex(vertex => vertex.evolve(tau));
+        this.each_vertex(vertex => {
+            let v = vec_mul(vertex.force, tau)
+            //v.clamp(0.05*this.ds)
+            vertex.x += v.x;
+            vertex.y += v.y;
+        });
 
         // move nodes on baricenter
         if (true) {
@@ -211,7 +216,7 @@ class Cluster {
         // update pressures
         this.regions.forEach(region => {
             region.area_target_plus += 0.01*(region.area_target-region.area())
-            region.pressure = (region.area_target_plus-region.area())/(this.ds*this.ds) 
+            region.pressure = 0.9 * region.pressure + 0.1*(region.area_target_plus-region.area())/(this.ds*this.ds) 
             //region.pressure = 0.5*region.pressure + 0.5*Math.sqrt(region.area_target - region.area)/(this.ds*this.ds)
         });
 
