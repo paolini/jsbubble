@@ -228,7 +228,7 @@ class Main {
             this.cluster.each_vertex(function(v){
                 ctx.beginPath();
                 ctx.moveTo(v.x, v.y);
-                ctx.lineTo(v.x + v.force.x*100, v.y+v.force.y*100);
+                ctx.lineTo(v.x + v.force.x, v.y+v.force.y);
                 ctx.stroke();
             });
         }
@@ -362,17 +362,17 @@ class Main {
             var $table = $elem("table");
             $table.append($elem("tr")
                 .append($elem("th").attr('style', 'width: 2em').text("region"))
-                .append($elem("th").attr('style', 'width: 5em').text("area"))
                 .append($elem("th").attr('style', 'width: 5em').text("target"))
-                .append($elem("th").attr('style', 'width: 5em').text(""))
+                .append($elem("th").attr('style', 'width: 5em').text("area"))
+                .append($elem("th").attr('style', 'width: 5em').text("pressure"))
                 .append($elem("th").attr('style', 'width: 5em').text("perimeter")));
             this.cluster.regions.forEach(region => {
                 let $input = $elem("input")
                     .attr("id", "target_" + region.id)
                     .attr("value", region.target_area)
                     .attr("size", 5).change((event) => {
-                    let target = parseFloat(event.target.value);
-                    region.area_target = target; 
+                    let target = parseFloat(event.target.value)
+                    region.set_target(target) 
                 });
                 const paint=(el, color)=>{
                     if (this.options.fill_regions) return el.css("background-color",color)
@@ -380,8 +380,8 @@ class Main {
                 }
                 $table.append($elem("tr")
                     .append(paint($elem("td").text(region.id),region.color))
-                    .append($elem("td").attr("id", "area_" + region.id))
                     .append($elem("td").append($input))
+                    .append($elem("td").attr("id", "area_" + region.id))
                     .append($elem("td").attr("id", "pressure_" + region.id))
                     .append($elem("td").attr("id", "perimeter_" + region.id)));
             });
@@ -532,7 +532,7 @@ class Main {
                     other_region.signed_chains.push([sign,chain])
                     chain.signed_regions.push([sign, other_region])
                 })
-                other_region.area_target += region.area_target
+                other_region.set_target(other_region.area_target + region.area_target)
             }
             this.cluster.remove_region(region)
         }

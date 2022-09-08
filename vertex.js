@@ -14,9 +14,10 @@ class Vertex extends Vec {
     }
 
     evolve(dt) {
-        this.force.clamp(0.1); // speed limit!
-        this.x += dt * this.force.x;
-        this.y += dt * this.force.y;
+        let v = vec_mul(this.force, dt)
+        v.clamp(0.1)
+        this.x += v.x;
+        this.y += v.y;
     }
 
     toJSON() {
