@@ -95,7 +95,7 @@ class Cluster {
 
         this.chains.forEach(chain => {
             const ds = chain.length() / (chain.vertices.length-1)
-            const r = (this.ds*this.ds)/(ds*ds) 
+            const r = 1.0 / (ds*ds) 
 
             if (chain.signed_regions.length === 0) return
             
@@ -120,12 +120,10 @@ class Cluster {
             // pressure
             var p = 0.0;
             chain.signed_regions.forEach(([sign, region]) => {
-                p += sign * region.pressure
+                p += sign * region.pressure 
             })
-            // var ds = chain.length() / (chain.vertices.length-1);
-            if (Math.abs(p) > this.ds) p *= this.ds / Math.abs(p)
             const n = chain.vertices.length;
-            for (var i=1; i<n-1; ++i) {
+            for (var i=0; i<n; ++i) {
                 const v = chain.vertices[i>0?i-1:i];
                 const z = chain.vertices[i];
                 const w = chain.vertices[i<n-1?i+1:i];
@@ -175,20 +173,23 @@ class Cluster {
         });
 
         // move vertices along forces
-        this.each_vertex(vertex => vertex.evolve(this.dt));
+        const tau = this.dt*this.ds*this.ds
+        this.each_vertex(vertex => vertex.evolve(tau));
 
         // move nodes on baricenter
-        this.nodes.forEach(node => {
-            if (node.signed_chains.length <= 2) return
-            let p = new Vec(0.0, 0.0)
-            node.signed_chains.forEach(([sign, chain]) => {
-                p.add(chain.adjacent_node(sign))
-            })
-            p = vec_div(p, node.signed_chains.length)
-            node.x = p.x
-            node.y = p.y
-            // node.set(p)
-        }) 
+        if (true) {
+            this.nodes.forEach(node => {
+                if (node.signed_chains.length <= 2) return
+                let p = new Vec(0.0, 0.0)
+                node.signed_chains.forEach(([sign, chain]) => {
+                    p.add(chain.adjacent_node(sign))
+                })
+                p = vec_div(p, node.signed_chains.length)
+                node.x = p.x
+                node.y = p.y
+                // node.set(p)
+            }) 
+        }
 
         this.invalidate_deep();
 
@@ -208,8 +209,10 @@ class Cluster {
         this.equalize();
 
         // update pressures
-        this.regions.forEach(function (region) {
-            region.pressure = (region.area_target - region.area())/region.area_target;
+        this.regions.forEach(region => {
+            region.area_target_plus += 0.01*(region.area_target-region.area())
+            region.pressure = (region.area_target_plus-region.area())/(this.ds*this.ds) 
+            //region.pressure = 0.5*region.pressure + 0.5*Math.sqrt(region.area_target - region.area)/(this.ds*this.ds)
         });
 
         this.compute_forces();
@@ -435,10 +438,10 @@ class Cluster {
         // subdivide target_area proportionally
         if (region.area_target > 0) {
             let ratio = area / region.area_target
-            region.area_target = ratio * region.area()
-            new_region.area_target = ratio * new_region.area()
+            region.set_target(ratio * region.area())
+            new_region.set_target(ratio * new_region.area())
         } else {
-            new_region.area_target = new_region.area()
+            new_region.set_target(new_region.area())
         }      
 
         return new_region
@@ -546,7 +549,7 @@ class Cluster {
             let sign = area > 0 ? 1 : -1  
             let region = this.add_region(new Region())
             region.add_chain(sign, chain)
-            region.area_target = Math.abs(area)
+            region.set_target(Math.abs(area))
             return region
         } else {
             // 1. find the region we are in 
@@ -560,6 +563,7 @@ class Cluster {
             let chains = region.signed_chains.map(([sign, chain]) => chain)
             let start = find_closest_vertex(chains, chain.vertex_start())
             // start = { dist, chain, idx }
+            if (start.chain === null) return null
             start = this.split_chain(start.chain, start.idx)
             this.pinch_vertices(start, chain.vertex_start())
 
@@ -567,11 +571,12 @@ class Cluster {
             chains = region.signed_chains.map(([sign, chain]) => chain)
             let end = find_closest_vertex(chains, chain.vertex_end())
             // end = { dist, chain, idx }
+            if (end.chain === null) return null
             end = this.split_chain(end.chain,end.idx)
             this.pinch_vertices(end, chain.vertex_end())
             const new_region = this.split_region(region, chain)
             if (region === this.external_region) {
-                new_region.area_target = new_region.area()
+                new_region.set_target(new_region.area())
             }
             this.remove_external_region()
             return new_region

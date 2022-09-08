@@ -10,12 +10,17 @@ class Region {
         this.id = 0
         this.color = null
         this.signed_chains = [] // [sign, chain]
-        this.area_target = area_target
         this.pressure = 1.0  // hint pressure
         this.cluster = null
+        this.set_target(area_target)
         this.invalidate()
     }
     
+    set_target(area) {
+        this.area_target = area
+        this.area_target_plus = area
+    }
+
     invalidate() {
         this._area = null
         this._perimeter = null
