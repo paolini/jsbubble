@@ -29,7 +29,8 @@
                     canvas: document.getElementById("canvas"), 
                     div: document.getElementById("div"),
                 })
-                test(new Main({canvas: null, div: null}))
+                // test(new Main({canvas: null, div: null}))
+                $("#version").text(`(ver. ${VERSION})`)
             })
         </script>
         <style>
@@ -67,7 +68,7 @@
         <!-- End Matomo Code -->
     </head>
     <body>
-        <h2>js-bubble</h2>
+        <h2>js-bubble <span id="version"></span></h2>
         <div id="container">
         <canvas id="canvas" width="640" height="480"></canvas>
         <div id="div"></div>

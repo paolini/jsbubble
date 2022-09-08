@@ -123,7 +123,7 @@ class Cluster {
                 p += sign * region.pressure 
             })
             const n = chain.vertices.length;
-            for (var i=1; i<n-1; ++i) {
+            for (var i=0; i<n; ++i) {
                 const v = chain.vertices[i>0?i-1:i];
                 const z = chain.vertices[i];
                 const w = chain.vertices[i<n-1?i+1:i];
@@ -177,17 +177,19 @@ class Cluster {
         this.each_vertex(vertex => vertex.evolve(tau));
 
         // move nodes on baricenter
-        this.nodes.forEach(node => {
-            if (node.signed_chains.length <= 2) return
-            let p = new Vec(0.0, 0.0)
-            node.signed_chains.forEach(([sign, chain]) => {
-                p.add(chain.adjacent_node(sign))
-            })
-            p = vec_div(p, node.signed_chains.length)
-            node.x = p.x
-            node.y = p.y
-            // node.set(p)
-        }) 
+        if (true) {
+            this.nodes.forEach(node => {
+                if (node.signed_chains.length <= 2) return
+                let p = new Vec(0.0, 0.0)
+                node.signed_chains.forEach(([sign, chain]) => {
+                    p.add(chain.adjacent_node(sign))
+                })
+                p = vec_div(p, node.signed_chains.length)
+                node.x = p.x
+                node.y = p.y
+                // node.set(p)
+            }) 
+        }
 
         this.invalidate_deep();
 
