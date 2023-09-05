@@ -13,13 +13,6 @@ class Vertex extends Vec {
         this.signed_chains = [] // [sign, chain] if I'm an end-point of chain
     }
 
-    evolve(dt) {
-        let v = vec_mul(this.force, dt)
-        v.clamp(0.1)
-        this.x += v.x;
-        this.y += v.y;
-    }
-
     toJSON() {
         return `Vertex(${this.id || ""})`
     }

@@ -123,7 +123,7 @@ class Cluster {
                 p += sign * region.pressure 
             })
             const n = chain.vertices.length;
-            for (var i=1; i<n-1; ++i) {
+            for (var i=0; i<n; ++i) {
                 const v = chain.vertices[i>0?i-1:i];
                 const z = chain.vertices[i];
                 const w = chain.vertices[i<n-1?i+1:i];
@@ -174,20 +174,27 @@ class Cluster {
 
         // move vertices along forces
         const tau = this.dt*this.ds*this.ds
-        this.each_vertex(vertex => vertex.evolve(tau));
+        this.each_vertex(vertex => {
+            let v = vec_mul(vertex.force, tau)
+            //v.clamp(0.05*this.ds)
+            vertex.x += v.x;
+            vertex.y += v.y;
+        });
 
         // move nodes on baricenter
-        this.nodes.forEach(node => {
-            if (node.signed_chains.length <= 2) return
-            let p = new Vec(0.0, 0.0)
-            node.signed_chains.forEach(([sign, chain]) => {
-                p.add(chain.adjacent_node(sign))
-            })
-            p = vec_div(p, node.signed_chains.length)
-            node.x = p.x
-            node.y = p.y
-            // node.set(p)
-        }) 
+        if (true) {
+            this.nodes.forEach(node => {
+                if (node.signed_chains.length <= 2) return
+                let p = new Vec(0.0, 0.0)
+                node.signed_chains.forEach(([sign, chain]) => {
+                    p.add(chain.adjacent_node(sign))
+                })
+                p = vec_div(p, node.signed_chains.length)
+                node.x = p.x
+                node.y = p.y
+                // node.set(p)
+            }) 
+        }
 
         this.invalidate_deep();
 
@@ -209,7 +216,7 @@ class Cluster {
         // update pressures
         this.regions.forEach(region => {
             region.area_target_plus += 0.01*(region.area_target-region.area())
-            region.pressure = (region.area_target_plus-region.area())/(this.ds*this.ds) 
+            region.pressure = 0.9 * region.pressure + 0.1*(region.area_target_plus-region.area())/(this.ds*this.ds) 
             //region.pressure = 0.5*region.pressure + 0.5*Math.sqrt(region.area_target - region.area)/(this.ds*this.ds)
         });
 
