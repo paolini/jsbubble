@@ -96,11 +96,12 @@ class Cluster {
         this.chains.forEach(chain => {
             const ds = chain.length() / (chain.vertices.length-1)
             const r = 1.0 / (ds*ds) 
+            const n = chain.vertices.length;
 
             if (chain.signed_regions.length === 0) return
             
             // curvature * ds^2
-            for(var i=1; i<chain.vertices.length; ++i) {
+            for(var i=1; i<n; ++i) {
                 const v = chain.vertices[i-1];
                 const w = chain.vertices[i];
 
@@ -111,10 +112,8 @@ class Cluster {
                     v.force.x += fx;
                     v.force.y += fy;
                 } 
-                if (i<chain.vertices.length) {
-                    w.force.x -= fx;
-                    w.force.y -= fy;
-                }
+                w.force.x -= fx;
+                w.force.y -= fy;
             }
             
             // pressure
@@ -122,17 +121,17 @@ class Cluster {
             chain.signed_regions.forEach(([sign, region]) => {
                 p += sign * region.pressure 
             })
-            const n = chain.vertices.length;
-            for (var i=0; i<n; ++i) {
-                const v = chain.vertices[i>0?i-1:i];
-                const z = chain.vertices[i];
-                const w = chain.vertices[i<n-1?i+1:i];
-                const fx = w.y-v.y;
-                const fy = v.x-w.x;
-                const l = Math.sqrt(fx*fx + fy*fy);
+            for (var i=1; i<n; ++i) {
+                const v = chain.vertices[i-1]
+                const w = chain.vertices[i]
+                const fx = w.y-v.y
+                const fy = v.x-w.x
+                const l = 2*Math.sqrt(fx*fx + fy*fy)
 
-                z.force.x += p*fx/l;
-                z.force.y += p*fy/l;
+                chain.vertices[i-1].force.x += p*fx/l;
+                chain.vertices[i-1].force.y += p*fy/l;
+                chain.vertices[i].force.x += p*fx/l;
+                chain.vertices[i].force.y += p*fy/l;
             }
         })
     }
