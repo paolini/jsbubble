@@ -16,6 +16,10 @@ and activate automatic topological changes (auto topology) which means that shri
 You can try to change the precision (shorter segments) and the velocity (faster evolution). 
 This might lead to instabilities and blow ups.
 
+# local development
+
+To run the program locally, clone the repository and open the file `index.html` in a browser.
+
 ## copyright
 
  Copyright 2021, 2022 Emanuele Paolini (emanuele.paolini@unipi.it)

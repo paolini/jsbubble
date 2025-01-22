@@ -36,6 +36,7 @@ class Main {
             record_commands: true,
             dt: 0.2,
             ds: 0.1,
+            plot_offset: new Vec(0,0),
             ...options
         }
 
@@ -50,6 +51,7 @@ class Main {
         this.records = []
         this.recorded_options = {}
         this.record_update_count = 0
+        this.translate = new Vec(0,0)
 
         this.myctx = null        
         
@@ -144,9 +146,31 @@ class Main {
             evt.preventDefault()
         }
 
+        let on_key_down=(evt)=> {
+            if (document.activeElement.tagName === 'INPUT') return;
+
+            switch(evt.key) {
+                case "ArrowDown":
+                    this.options.plot_offset.y -= 0.1
+                    break;
+                case "ArrowUp":
+                    this.options.plot_offset.y += 0.1
+                    break;
+                case "ArrowLeft":
+                    this.options.plot_offset.x -= 0.1
+                    break;
+                case "ArrowRight":
+                    this.options.plot_offset.x += 0.1
+                    break;
+                default:
+                    console.log("key down", evt.key, "not handled")
+            }
+        }
+
         canvas.addEventListener("touchstart", on_touch_down, false)
         canvas.addEventListener("touchmove", on_touch_move, false)
         canvas.addEventListener("touchup", on_touch_up, false)
+        window.addEventListener("keydown", on_key_down, false)
     }
     
     plot(ctx) {
@@ -425,6 +449,7 @@ class Main {
         this.cluster.dt = this.options.dt
         this.cluster.ds = this.options.ds
         this.cluster.evolve()
+        this.cluster.each_vertex(vertex => vertex.add(this.options.plot_offset));
         if (this.cluster.regions.length === 0) this.selected_tool = "draw"
         this.draw()
         if (this.loop) {
