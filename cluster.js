@@ -98,7 +98,7 @@ class Cluster {
             const r = 1.0 / (ds*ds) 
             const n = chain.vertices.length;
 
-            if (chain.signed_regions.length === 0) return
+            //if (chain.signed_regions.length === 0) return
             
             // curvature * ds^2
             for(var i=1; i<n; ++i) {
@@ -176,8 +176,10 @@ class Cluster {
         this.each_vertex(vertex => {
             let v = vec_mul(vertex.force, tau)
             //v.clamp(0.05*this.ds)
-            vertex.x += v.x;
-            vertex.y += v.y;
+            if (!vertex.pinned) {
+                vertex.x += v.x;
+                vertex.y += v.y;
+            }
         });
 
         // move nodes on baricenter
@@ -189,8 +191,10 @@ class Cluster {
                     p.add(chain.adjacent_node(sign))
                 })
                 p = vec_div(p, node.signed_chains.length)
-                node.x = p.x
-                node.y = p.y
+                if (!node.pinned) {
+                    node.x = p.x
+                    node.y = p.y
+                }
                 // node.set(p)
             }) 
         }
@@ -308,7 +312,8 @@ class Cluster {
     simplify_chains() {
         // remove nodes of order 2
         const nodes = this.nodes.filter(node => (
-            node.signed_chains.length === 2 
+            node.signed_chains.length === 2
+            && !node.pinned
             && node.signed_chains[0][1]!==node.signed_chains[1][1]))
         nodes.forEach(node => {
             let [sign0, chain0] = node.signed_chains[0]

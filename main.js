@@ -19,7 +19,8 @@ class Main {
             pen_color: "gray",
             force_color: "green",
             vertex_color: "black",
-            node_color: "red",
+            node_color: "green",
+            pinned_color: "red",
             draw_ids: false,
             vertex_id_color: "black",
             chain_id_color: "blue",
@@ -82,10 +83,18 @@ class Main {
                     if (chain) this.command_collapse(chain)
                     break
                 case "split":
-                    const v = find_closest_node(this.cluster.nodes, p)
-                    if (v && v.signed_chains.length > 3) {
-                        this.command_split(v)
-                        this.cluster.split_vertex(v)
+                    {
+                        const v = find_closest_node(this.cluster.nodes, p)
+                        if (v && v.signed_chains.length > 3) {
+                            this.command_split(v)
+                            this.cluster.split_vertex(v)
+                        }
+                    }
+                    break
+                case "pin":
+                    {
+                        const v = find_closest_node(this.cluster.nodes, p)
+                        v.pinned = !v.pinned
                     }
                     break
             }
@@ -267,8 +276,10 @@ class Main {
         } 
         
         if (this.options.draw_nodes) {
-            ctx.setStrokeColor(this.options.node_color);
+            const pinned_color = this.options.pinned_color
+            const node_color = this.options.node_color
             this.cluster.nodes.forEach(function(v){
+                ctx.setStrokeColor(v.pinned ? pinned_color : node_color);
                 ctx.beginPath();
                 ctx.circle(v.x, v.y, 2/ctx.scale);
                 ctx.stroke();
@@ -303,7 +314,8 @@ class Main {
             "remove": "Remove an edge",
             "flip": "Flip an edge",
             "collapse": "Collapse an edge",
-            "split": "Split a vertex with at least 4 edges"
+            "split": "Split a vertex with at least 4 edges",
+            "pin": "Pin a vertex",
         }
         let $select = $elem("select")
         $div.append($select)
