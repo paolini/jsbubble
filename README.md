@@ -1,3 +1,5 @@
+[![DOI](https://zenodo.org/badge/268089050.svg)](https://doi.org/10.5281/zenodo.24170428)
+
 # cluster evolver
 
 Try it online at https://paolini.github.io/jsbubble/
