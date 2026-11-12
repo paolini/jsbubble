@@ -1,0 +1,30 @@
+{
+  "upload_type": "software",
+  "title": "jsbubble: an interactive evolver for planar bubble clusters",
+  "description": "<p>A browser application that lets you draw planar bubble clusters and watch them evolve towards a (locally) minimal cluster, i.e. a configuration of least perimeter with prescribed areas.</p><p>You can change the target area of each bubble, split, flip, remove or collapse edges, split vertices with at least four edges, pin vertices, show the instantaneous forces and enable automatic topological changes.</p><p>To run it offline, unzip the archive and open <code>index.html</code> in a web browser: all dependencies are bundled.</p><p>Online version: <a href=\"https://paolini.github.io/jsbubble/\">https://paolini.github.io/jsbubble/</a></p>",
+  "creators": [
+    {
+      "name": "Paolini, Emanuele",
+      "affiliation": "Università di Pisa",
+      "orcid": "0000-0001-7021-7537"
+    }
+  ],
+  "license": "gpl-3.0-or-later",
+  "language": "eng",
+  "keywords": [
+    "minimal clusters",
+    "double bubble",
+    "isoperimetric problem",
+    "soap bubbles",
+    "gradient flow",
+    "JavaScript",
+    "interactive simulation"
+  ],
+  "related_identifiers": [
+    {
+      "identifier": "https://paolini.github.io/jsbubble/",
+      "relation": "isVariantFormOf",
+      "resource_type": "software"
+    }
+  ]
+}
